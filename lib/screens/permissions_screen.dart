@@ -1,45 +1,30 @@
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
-import 'permissions_screen.dart';
+import 'main_shell.dart';
 
-class ExperienceScreen extends StatefulWidget {
-  const ExperienceScreen({super.key});
+class PermissionsScreen extends StatefulWidget {
+  const PermissionsScreen({super.key});
 
   @override
-  State<ExperienceScreen> createState() => _ExperienceScreenState();
+  State<PermissionsScreen> createState() => _PermissionsScreenState();
 }
 
-class _ExperienceScreenState extends State<ExperienceScreen> {
-  int _selected = 1;
-  double _difficulty = 0.5;
+class _PermissionsScreenState extends State<PermissionsScreen> {
+  // Cosmetic only for now — no permission_handler calls yet.
+  final _granted = <bool>[true, true, false];
 
-  static const _levels = [
-    ['Beginner', 'New to hiking'],
-    ['Intermediate', 'Hike a few times a year'],
-    ['Advanced', 'Frequent, technical trails'],
+  static const _items = [
+    ['Location access', 'Powers trail safety scoring and SOS'],
+    ['Notifications', 'Weather and hazard alerts while you hike'],
+    ['Offline maps', 'Download maps for no-signal areas'],
   ];
 
-  String get _difficultyLabel {
-    if (_difficulty < 0.34) return 'Gentle';
-    if (_difficulty < 0.67) return 'Moderate';
-    return 'Demanding';
-  }
-
-  String get _difficultyHint {
-    if (_difficulty < 0.34) return 'Well-marked paths, gradual climbs';
-    if (_difficulty < 0.67) return 'Some steep sections and rough ground';
-    return 'Long climbs, scrambling, exposed ridges';
-  }
-
-  void _continue() {
-    HikerProfile.experienceLevel = '${_levels[_selected][0]} Hiker';
-
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ExperienceScreen()),
-    );
-  }
+  static const _icons = [
+    Icons.location_on_outlined,
+    Icons.notifications_none_rounded,
+    Icons.download_outlined,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -71,68 +56,97 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
-                  const _StepBar(step: 2),
+                  const _StepBar(step: 3),
                   const SizedBox(height: 18),
 
                   Text(
-                    "What's your hiking experience?",
+                    'Enable permissions',
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This changes how strictly trails are scored for you. The '
-                    'same trail can be green for one hiker and red for another.',
+                    'Location is what makes safety scoring and SOS work. You '
+                    'can change any of these later in Profile.',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
                         ?.copyWith(height: 1.5),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
 
-                  for (var i = 0; i < _levels.length; i++) ...[
-                    _LevelOption(
-                      title: _levels[i][0],
-                      subtitle: _levels[i][1],
-                      selected: _selected == i,
-                      onTap: () => setState(() => _selected = i),
+                  for (var i = 0; i < _items.length; i++) ...[
+                    AppCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color:
+                                  _granted[i] ? AppColors.mist : AppColors.fill,
+                              borderRadius: AppRadius.field,
+                            ),
+                            child: Icon(
+                              _icons[i],
+                              size: 22,
+                              color: _granted[i]
+                                  ? AppColors.forest
+                                  : AppColors.inkSoft,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _items[i][0],
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _items[i][1],
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _granted[i],
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: AppColors.forest,
+                            onChanged: (v) => setState(() => _granted[i] = v),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],
 
-                  const SizedBox(height: 18),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SectionLabel('Preferred difficulty'),
-                      Text(
-                        _difficultyLabel,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: AppColors.forest),
-                      ),
-                    ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: AppColors.forest,
-                      inactiveTrackColor: AppColors.fill,
-                      thumbColor: AppColors.forest,
-                      overlayColor: const Color(0x1F1B7A4B),
-                      trackHeight: 5,
+                  const SizedBox(height: 8),
+                  // Honest about what happens if location stays off, rather
+                  // than blocking the user or nagging.
+                  if (!_granted[0])
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline,
+                            size: 16, color: AppColors.blaze),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Without location, trails cannot be scored for '
+                            'where you are and SOS cannot share your position.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.blaze),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Slider(
-                      value: _difficulty,
-                      onChanged: (v) => setState(() => _difficulty = v),
-                    ),
-                  ),
-                  // Naming what the slider position means, so the control
-                  // isn't just an abstract line.
-                  Text(
-                    _difficultyHint,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
@@ -140,69 +154,16 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: PrimaryButton(
-                label: 'Continue',
-                onPressed: _continue,
+                label: 'Go to dashboard',
+                // Clears the whole onboarding stack so Back cannot land
+                // someone back in the sign-up flow.
+                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                  (route) => false,
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// One selectable experience level.
-class _LevelOption extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _LevelOption({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.mist : AppColors.card,
-      borderRadius: AppRadius.card,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.card,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.card,
-            border: Border.all(
-              color: selected ? AppColors.forest : AppColors.line,
-              width: selected ? 1.8 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: selected ? AppColors.forest : AppColors.line,
-              ),
-            ],
-          ),
         ),
       ),
     );

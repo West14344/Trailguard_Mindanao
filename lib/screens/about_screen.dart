@@ -14,7 +14,6 @@ class AboutScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Labelled back control, left-aligned above the content.
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 24, 0),
               child: Row(
@@ -59,8 +58,7 @@ class AboutScreen extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // Show the score rather than describe it — it's the
-                  // product's core idea in one glance.
+                  // Show the score rather than describe it.
                   const SectionLabel('Every trail gets a score'),
                   const SizedBox(height: 14),
                   const _ScoreSample(
@@ -158,7 +156,6 @@ class AboutScreen extends StatelessWidget {
 
                   const SizedBox(height: 34),
 
-                  // Closing note, set apart so it reads as the takeaway.
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(

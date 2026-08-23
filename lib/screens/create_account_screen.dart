@@ -15,7 +15,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _contact = TextEditingController();
+  final _contactName = TextEditingController();
+  final _contactNumber = TextEditingController();
 
   bool _showPassword = false;
   String? _error;
@@ -25,14 +26,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       _name.text.trim().isNotEmpty &&
       _email.text.trim().isNotEmpty &&
       _password.text.isNotEmpty &&
-      _contact.text.trim().isNotEmpty;
+      _contactName.text.trim().isNotEmpty &&
+      _contactNumber.text.trim().isNotEmpty;
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
     _password.dispose();
-    _contact.dispose();
+    _contactName.dispose();
+    _contactNumber.dispose();
     super.dispose();
   }
 
@@ -52,10 +55,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() => _error = null);
 
-    // Nothing is persisted yet; this carries the name into later screens.
+    // Nothing is persisted yet; this carries the details into later screens.
     HikerProfile.fullName = _name.text.trim();
     HikerProfile.email = email;
-    HikerProfile.emergencyContact = _contact.text.trim();
+    HikerProfile.emergencyContact = _contactName.text.trim();
+    HikerProfile.emergencyNumber = _contactNumber.text.trim();
 
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExperienceScreen()),
@@ -145,12 +149,27 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           setState(() => _showPassword = !_showPassword),
                     ),
                   ),
+
+                  const SizedBox(height: 30),
+
+                  // The two emergency fields belong together, so they get
+                  // their own labelled group.
+                  const SectionLabel('Emergency contact'),
+                  const SizedBox(height: 14),
+
+                  LabeledField(
+                    label: 'Name of contact person',
+                    hint: 'Benhard Awanon',
+                    controller: _contactName,
+                    keyboardType: TextInputType.name,
+                    onChanged: (_) => setState(() => _error = null),
+                  ),
                   const SizedBox(height: 18),
 
                   LabeledField(
-                    label: 'Emergency contact',
-                    hint: 'Name and phone number',
-                    controller: _contact,
+                    label: 'Number of contact person',
+                    hint: '+63 912 345 6789',
+                    controller: _contactNumber,
                     keyboardType: TextInputType.phone,
                     onChanged: (_) => setState(() => _error = null),
                   ),
@@ -185,8 +204,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Your emergency contact is alerted when you hold SOS '
-                          'on the trail.',
+                          'This person is alerted with your location when you '
+                          'hold SOS on the trail.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -219,8 +238,7 @@ class _StepBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text('STEP $step OF 3',
-            style: Theme.of(context).textTheme.labelSmall),
+        Text('STEP $step OF 3', style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(width: 12),
         Expanded(
           child: Row(

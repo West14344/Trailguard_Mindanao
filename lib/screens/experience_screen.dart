@@ -36,13 +36,8 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
   void _continue() {
     HikerProfile.experienceLevel = '${_levels[_selected][0]} Hiker';
 
-    // TODO: push PermissionsScreen (step 3 of 3) once it exists.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Next: app permissions'),
-        backgroundColor: AppColors.pine,
-        behavior: SnackBarBehavior.floating,
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PermissionsScreen()),
     );
   }
 
