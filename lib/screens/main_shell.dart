@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'alerts_screen.dart';
 import 'dashboard_screen.dart';
+import 'trail_map_screen.dart';
+import 'group_screen.dart';
 
 /// Holds the five tabs. IndexedStack keeps each tab's scroll position
 /// when you switch away and back.
@@ -22,9 +25,9 @@ class _MainShellState extends State<MainShell> {
         index: _index,
         children: const [
           DashboardScreen(),
-          _ComingSoon(label: 'Trail map'),
-          _ComingSoon(label: 'Alerts'),
-          _ComingSoon(label: 'Group'),
+          TrailMapScreen(),
+          AlertsScreen(),
+          GroupScreen(),
           _ComingSoon(label: 'Profile'),
         ],
       ),

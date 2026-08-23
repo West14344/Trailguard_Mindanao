@@ -120,24 +120,43 @@ const kAlerts = <TrailAlert>[
   ),
 ];
 
+/// A hiker in your group. Distance between members is computed from these
+/// coordinates rather than stored, so it stays correct as people move.
 class GroupMember {
   final String name;
-  final String status;
-  final bool onTrail;
+  final bool isYou;
+  final double latitude;
+  final double longitude;
 
   const GroupMember({
     required this.name,
-    required this.status,
-    required this.onTrail,
+    required this.latitude,
+    required this.longitude,
+    this.isYou = false,
   });
 }
 
 const kGroupName = 'ABACA HUNTERS';
 
+/// Positions along the Mt Apo trail. Replace with live GPS when the
+/// backend can exchange positions between group members.
 const kGroupMembers = <GroupMember>[
-  GroupMember(name: 'Nukie (You)', status: 'On trail', onTrail: true),
-  GroupMember(name: 'Justin Nabunturan', status: 'On trail', onTrail: true),
-  GroupMember(name: 'CapyBara Awanon', status: '400m behind', onTrail: false),
+  GroupMember(
+    name: 'Nukie',
+    latitude: 6.9875,
+    longitude: 125.2731,
+    isYou: true,
+  ),
+  GroupMember(
+    name: 'Justin Nabunturan',
+    latitude: 6.9878,
+    longitude: 125.2734,
+  ),
+  GroupMember(
+    name: 'CapyBara Awanon',
+    latitude: 6.9841,
+    longitude: 125.2709,
+  ),
 ];
 
 /// Single source of truth for the signed-in hiker while there is no backend.
@@ -153,5 +172,25 @@ class HikerProfile {
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
+  }
+}
+
+/// Tracks whether the hiker is currently in a group. In-memory only —
+/// a real build would persist this and sync with a backend.
+class GroupSession {
+  static bool isActive = false;
+  static String name = '';
+  static String code = '';
+
+  static void start({required String groupName, required String groupCode}) {
+    name = groupName;
+    code = groupCode;
+    isActive = true;
+  }
+
+  static void leave() {
+    isActive = false;
+    name = '';
+    code = '';
   }
 }
