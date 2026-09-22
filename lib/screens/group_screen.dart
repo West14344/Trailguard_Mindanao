@@ -34,13 +34,15 @@ class _GroupScreenState extends State<GroupScreen> {
         onJoin: () => _openSetup(const JoinGroupScreen()),
       );
     }
-    return _GroupLiveView(onLeave: () => setState(GroupSession.leave));
+    return _GroupLiveView(
+      key: ValueKey(GroupSession.code),
+      onLeave: () => setState(GroupSession.leave),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
 
-/// Shown when the hiker is not in a group yet.
 class _GroupEntryView extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onJoin;
@@ -59,10 +61,8 @@ class _GroupEntryView extends StatelessWidget {
             Text('Group hiking',
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 6),
-            Text(
-              'Keep track of each other on the trail.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text('Keep track of each other on the trail.',
+                style: Theme.of(context).textTheme.bodySmall),
 
             const Spacer(flex: 2),
 
@@ -117,42 +117,31 @@ class _GroupEntryView extends StatelessWidget {
 
 // ---------------------------------------------------------------------------
 
-/// Live positions once the hiker is in a group.
 class _GroupLiveView extends StatefulWidget {
   final VoidCallback onLeave;
-  const _GroupLiveView({required this.onLeave});
+  const _GroupLiveView({super.key, required this.onLeave});
 
   @override
   State<_GroupLiveView> createState() => _GroupLiveViewState();
 }
 
 class _GroupLiveViewState extends State<_GroupLiveView> {
-  late List<LatLng> _positions = [
-    for (final m in kGroupMembers) LatLng(m.latitude, m.longitude),
-  ];
-
   Timer? _ticker;
   final _random = math.Random();
 
   @override
   void initState() {
     super.initState();
-    // Nudges positions every few seconds so distances visibly update,
-    // standing in for real movement on the trail.
+    // Nudges other members so distances visibly update. Replace with a
+    // position stream from the backend when one exists.
     _ticker = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       setState(() {
-        _positions = [
-          for (var i = 0; i < _positions.length; i++)
-            i == _youIndex
-                ? _positions[i]
-                : LatLng(
-                    _positions[i].latitude +
-                        (_random.nextDouble() - 0.5) * 0.0004,
-                    _positions[i].longitude +
-                        (_random.nextDouble() - 0.5) * 0.0004,
-                  ),
-        ];
+        for (final m in GroupSession.members) {
+          if (m.isYou) continue;
+          m.latitude += (_random.nextDouble() - 0.5) * 0.0004;
+          m.longitude += (_random.nextDouble() - 0.5) * 0.0004;
+        }
       });
     });
   }
@@ -163,15 +152,20 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
     super.dispose();
   }
 
-  int get _youIndex => kGroupMembers.indexWhere((m) => m.isYou);
+  GroupMember? get _you {
+    for (final m in GroupSession.members) {
+      if (m.isYou) return m;
+    }
+    return null;
+  }
 
-  /// Straight-line distance from you, in metres.
-  double _metersFromYou(int index) {
-    if (index == _youIndex) return 0;
+  double _metersFromYou(GroupMember member) {
+    final you = _you;
+    if (you == null || member.isYou) return 0;
     return _distanceCalculator.as(
       LengthUnit.Meter,
-      _positions[_youIndex],
-      _positions[index],
+      LatLng(you.latitude, you.longitude),
+      LatLng(member.latitude, member.longitude),
     );
   }
 
@@ -180,7 +174,6 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
     return '${(meters / 1000).toStringAsFixed(1)} km';
   }
 
-  /// Under 50 m reads as together; beyond 500 m is worth flagging.
   Color _statusColor(double meters) {
     if (meters < 50) return AppColors.forest;
     if (meters < 500) return AppColors.blaze;
@@ -189,10 +182,16 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
 
   @override
   Widget build(BuildContext context) {
-    final order = List<int>.generate(kGroupMembers.length, (i) => i)
-      ..sort((a, b) => _metersFromYou(a).compareTo(_metersFromYou(b)));
+    final members = GroupSession.members;
+    final you = _you;
 
-    final furthest = order.isEmpty ? 0.0 : _metersFromYou(order.last);
+    if (members.isEmpty || you == null) {
+      return _WaitingForHikers(onLeave: widget.onLeave);
+    }
+
+    final sorted = [...members]
+      ..sort((a, b) => _metersFromYou(a).compareTo(_metersFromYou(b)));
+    final furthest = _metersFromYou(sorted.last);
 
     return SafeArea(
       bottom: false,
@@ -211,8 +210,9 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                           style: Theme.of(context).textTheme.headlineMedium),
                       const SizedBox(height: 4),
                       Text(
-                        'Code ${GroupSession.code} · spread '
-                        '${_formatDistance(furthest)}',
+                        'Code ${GroupSession.code} · ${members.length} '
+                        '${members.length == 1 ? "hiker" : "hikers"}'
+                        '${members.length > 1 ? " · spread ${_formatDistance(furthest)}" : ""}',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -237,8 +237,8 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                 borderRadius: AppRadius.card,
                 child: FlutterMap(
                   options: MapOptions(
-                    initialCenter: _positions[_youIndex],
-                    initialZoom: 15.5,
+                    initialCenter: LatLng(you.latitude, you.longitude),
+                    initialZoom: 15,
                   ),
                   children: [
                     TileLayer(
@@ -248,17 +248,17 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                     ),
                     MarkerLayer(
                       markers: [
-                        for (var i = 0; i < kGroupMembers.length; i++)
+                        for (final m in members)
                           Marker(
-                            point: _positions[i],
+                            point: LatLng(m.latitude, m.longitude),
                             width: 34,
                             height: 34,
                             child: _MemberPin(
-                              initial: kGroupMembers[i].name[0],
-                              isYou: kGroupMembers[i].isYou,
-                              color: kGroupMembers[i].isYou
+                              initial: m.name.isEmpty ? '?' : m.name[0],
+                              isYou: m.isYou,
+                              color: m.isYou
                                   ? AppColors.pine
-                                  : _statusColor(_metersFromYou(i)),
+                                  : _statusColor(_metersFromYou(m)),
                             ),
                           ),
                       ],
@@ -274,17 +274,17 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               children: [
-                for (final i in order) ...[
+                for (final m in sorted) ...[
                   _MemberRow(
-                    member: kGroupMembers[i],
-                    label: kGroupMembers[i].isYou
+                    member: m,
+                    label: m.isYou
                         ? 'You'
-                        : _metersFromYou(i) < 50
+                        : _metersFromYou(m) < 50
                             ? 'Together'
-                            : '${_formatDistance(_metersFromYou(i))} away',
-                    color: kGroupMembers[i].isYou
+                            : '${_formatDistance(_metersFromYou(m))} away',
+                    color: m.isYou
                         ? AppColors.forest
-                        : _statusColor(_metersFromYou(i)),
+                        : _statusColor(_metersFromYou(m)),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -309,6 +309,88 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class _WaitingForHikers extends StatelessWidget {
+  final VoidCallback onLeave;
+  const _WaitingForHikers({required this.onLeave});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(GroupSession.name,
+                style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 4),
+            Text('Code ${GroupSession.code}',
+                style: Theme.of(context).textTheme.bodySmall),
+
+            const Spacer(),
+
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 92,
+                    height: 92,
+                    decoration: const BoxDecoration(
+                      color: AppColors.mist,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person_search_outlined,
+                        size: 42, color: AppColors.forest),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Waiting for hikers to join',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Share the code and everyone\'s distance from you appears '
+                    'here as they join.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(height: 1.55),
+                  ),
+                ],
+              ),
+            ),
+
+            const Spacer(),
+
+            PrimaryButton(
+              label: 'Share code ${GroupSession.code}',
+              icon: Icons.ios_share_rounded,
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Invite code ${GroupSession.code} copied'),
+                    backgroundColor: AppColors.pine,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            SecondaryButton(
+              label: 'Leave group',
+              icon: Icons.logout_rounded,
+              color: AppColors.alert,
+              onPressed: onLeave,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -375,7 +457,7 @@ class _MemberRow extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                member.name[0].toUpperCase(),
+                member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   color: member.isYou ? AppColors.moss : AppColors.forest,

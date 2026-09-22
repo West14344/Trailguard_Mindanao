@@ -2,21 +2,65 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../data/mock_data.dart';
+import '../data/mountains.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import 'trail_detail_screen.dart';
 
-/// Trailhead coordinates for the sample trails.
-const _kTrailPoints = <String, LatLng>{
-  'Mt Apo Trail': LatLng(6.9875, 125.2731),
-  'Kitanglad Ridge': LatLng(8.1500, 124.9167),
-  'Matigol Falls Path': LatLng(6.7500, 125.3500),
-};
-
-class TrailMapScreen extends StatelessWidget {
+class TrailMapScreen extends StatefulWidget {
   const TrailMapScreen({super.key});
 
   @override
+  State<TrailMapScreen> createState() => _TrailMapScreenState();
+}
+
+class _TrailMapScreenState extends State<TrailMapScreen> {
+  bool _onlyForMe = false;
+
+  List<Trail> get _shown =>
+      _onlyForMe ? suggestedFor(HikerProfile.levelRank) : kMountains;
+
+  void _openSheet(Trail mountain) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(mountain.name,
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text('${mountain.region} · ${mountain.duration}',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 16),
+              PrimaryButton(
+                label: 'See conditions',
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => TrailDetailScreen(trail: mountain)),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final shown = _shown;
+
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -27,19 +71,42 @@ class TrailMapScreen extends StatelessWidget {
             Text('Trail map',
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 4),
-            Text(
-              "Trailheads coloured by today's safety score",
-              style: Theme.of(context).textTheme.bodySmall,
+            Text('${shown.length} destinations across Mindanao',
+                style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+
+                        Row(
+              children: [
+                _Toggle(
+                  label: 'All',
+                  selected: !_onlyForMe,
+                  onTap: () => setState(() => _onlyForMe = false),
+                ),
+                const SizedBox(width: 8),
+                _Toggle(
+                  label: 'For me',
+                  selected: _onlyForMe,
+                  onTap: () => setState(() => _onlyForMe = true),
+                ),
+                const Spacer(),
+                const _LegendDot(color: AppColors.forest, label: 'Beg.'),
+                const SizedBox(width: 8),
+                const _LegendDot(color: AppColors.blaze, label: 'Int.'),
+                const SizedBox(width: 8),
+                const _LegendDot(color: AppColors.alert, label: 'Adv.'),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             Expanded(
               child: ClipRRect(
                 borderRadius: AppRadius.card,
                 child: FlutterMap(
                   options: const MapOptions(
-                    initialCenter: LatLng(7.2, 125.1),
-                    initialZoom: 8.5,
+                    initialCenter: LatLng(7.8, 125.0),
+                    initialZoom: 7,
+                    minZoom: 5,
+                    maxZoom: 17,
                   ),
                   children: [
                     TileLayer(
@@ -49,21 +116,30 @@ class TrailMapScreen extends StatelessWidget {
                     ),
                     MarkerLayer(
                       markers: [
-                        for (final trail in kTrails)
-                          if (_kTrailPoints[trail.name] != null)
-                            Marker(
-                              point: _kTrailPoints[trail.name]!,
-                              width: 44,
-                              height: 44,
-                              child: _TrailPin(trail: trail),
+                        for (final m in shown)
+                          Marker(
+                            point: LatLng(m.latitude, m.longitude),
+                            width: 26,
+                            height: 26,
+                            child: GestureDetector(
+                              onTap: () => _openSheet(m),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: m.levelColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.white, width: 2.5),
+                                ),
+                              ),
                             ),
+                          ),
                       ],
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             PrimaryButton(
               label: 'Download offline map',
@@ -85,32 +161,63 @@ class TrailMapScreen extends StatelessWidget {
   }
 }
 
-/// Pin colour carries the same meaning as the score chips elsewhere.
-class _TrailPin extends StatelessWidget {
-  final Trail trail;
-  const _TrailPin({required this.trail});
+class _Toggle extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _Toggle({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: '${trail.name} · ${trail.safetyScore}%',
-      child: Container(
-        decoration: BoxDecoration(
-          color: trail.scoreColor,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 3),
-        ),
-        child: Center(
+    return Material(
+      color: selected ? AppColors.forest : AppColors.card,
+      borderRadius: AppRadius.pill,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.pill,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.pill,
+            border: Border.all(
+                color: selected ? AppColors.forest : AppColors.line),
+          ),
           child: Text(
-            '${trail.safetyScore}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : AppColors.ink,
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

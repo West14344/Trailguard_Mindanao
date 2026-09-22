@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'alerts_screen.dart';
 import 'dashboard_screen.dart';
-import 'trail_map_screen.dart';
 import 'group_screen.dart';
+import 'profile_screen.dart';
+import 'trail_map_screen.dart';
 
 /// Holds the five tabs. IndexedStack keeps each tab's scroll position
 /// when you switch away and back.
@@ -18,17 +19,26 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
 
+  /// Bumped whenever a tab is selected. Passing it as a key forces the
+  /// tab to rebuild, so stats recorded on another tab show up immediately.
+  int _visitCount = 0;
+
+  void _select(int i) => setState(() {
+        _index = i;
+        _visitCount++;
+      });
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [
-          DashboardScreen(),
-          TrailMapScreen(),
-          AlertsScreen(),
-          GroupScreen(),
-          _ComingSoon(label: 'Profile'),
+        children: [
+          DashboardScreen(key: ValueKey('dashboard-$_visitCount')),
+          const TrailMapScreen(),
+          const AlertsScreen(),
+          const GroupScreen(),
+          ProfileScreen(key: ValueKey('profile-$_visitCount')),
         ],
       ),
       bottomNavigationBar: Container(
@@ -40,7 +50,7 @@ class _MainShellState extends State<MainShell> {
           top: false,
           child: BottomNavigationBar(
             currentIndex: _index,
-            onTap: (i) => setState(() => _index = i),
+            onTap: _select,
             type: BottomNavigationBarType.fixed,
             backgroundColor: AppColors.card,
             elevation: 0,
@@ -77,29 +87,6 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Temporary stand-in for tabs that are not built yet.
-class _ComingSoon extends StatelessWidget {
-  final String label;
-  const _ComingSoon({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.construction_outlined,
-              size: 44, color: AppColors.inkSoft),
-          const SizedBox(height: 12),
-          Text(label, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 4),
-          Text('Coming next', style: Theme.of(context).textTheme.bodySmall),
-        ],
       ),
     );
   }

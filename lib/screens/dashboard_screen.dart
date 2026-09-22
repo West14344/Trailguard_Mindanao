@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import '../data/hike_records.dart';
 import '../data/mock_data.dart';
+import '../data/mountains.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import 'hike_tracking_view.dart';
+import 'mountains_screen.dart';
 import 'trail_detail_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
   String get _greeting {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning';
@@ -14,9 +23,24 @@ class DashboardScreen extends StatelessWidget {
     return 'Good evening';
   }
 
+  Future<void> _openTrail(Trail trail) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TrailDetailScreen(trail: trail)),
+    );
+    // A hike may have started while we were away.
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    final featured = kTrails.first;
+    // The dashboard becomes the tracker while a hike is running.
+    if (ActiveHike.isActive) {
+      return HikeTrackingView(onFinished: () => setState(() {}));
+    }
+
+    final suggestions = suggestedFor(HikerProfile.levelRank);
+    final featured = suggestions.isEmpty ? kMountains.first : suggestions.first;
+    final topThree = suggestions.take(3).toList();
     final firstName = HikerProfile.fullName.split(' ').first;
 
     return SafeArea(
@@ -48,44 +72,147 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // Hero: today's score for the trail the hiker is headed to.
-          _HeroScoreCard(trail: featured),
-          const SizedBox(height: 26),
+          _HeroCard(trail: featured, onTap: () => _openTrail(featured)),
 
-          const SectionLabel('Recommended for you'),
-          const SizedBox(height: 12),
-          for (final trail in kTrails) ...[
-            _TrailRow(trail: trail),
+          if (HikeLog.totalHikes > 0) ...[
+            const SizedBox(height: 14),
+            _TotalsStrip(),
+          ],
+
+          if (HikeLog.readyToLevelUp) ...[
+            const SizedBox(height: 14),
+            const _LevelUpNudge(),
+          ],
+
+          const SizedBox(height: 26),
+          Row(
+            children: [
+              Expanded(
+                child: SectionLabel(
+                    'Matched to ${HikerProfile.levelName.toLowerCase()}'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MountainsScreen()),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.forest,
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('View all',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          for (final mountain in topThree) ...[
+            MountainRow(mountain: mountain),
             const SizedBox(height: 10),
           ],
 
-          const SizedBox(height: 14),
-          AppCard(
-            padding: const EdgeInsets.all(14),
-            child: Row(
+          const SizedBox(height: 4),
+          SecondaryButton(
+            label: 'View all ${kMountains.length} mountains',
+            icon: Icons.terrain_rounded,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MountainsScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Running totals, only shown once there is something to total.
+class _TotalsStrip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _Total(
+              value: '${HikeLog.totalHikes}',
+              label: HikeLog.totalHikes == 1 ? 'hike' : 'hikes'),
+          Container(
+              width: 1,
+              height: 30,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              color: AppColors.line),
+          _Total(
+              value: HikeLog.totalKm.toStringAsFixed(1), label: 'km total'),
+          Container(
+              width: 1,
+              height: 30,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              color: AppColors.line),
+          _Total(
+              value: '${HikeLog.earnedBadgeCount}', label: 'badges'),
+        ],
+      ),
+    );
+  }
+}
+
+class _Total extends StatelessWidget {
+  final String value;
+  final String label;
+  const _Total({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
+              color: AppColors.pine,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+}
+
+/// Appears after five hikes at the current level.
+class _LevelUpNudge extends StatelessWidget {
+  const _LevelUpNudge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x1AE3712B),
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.blaze.withAlpha(80)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.trending_up_rounded,
+              size: 22, color: AppColors.blaze),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0x1AE3712B),
-                    borderRadius: AppRadius.field,
-                  ),
-                  child: const Icon(Icons.thunderstorm_outlined,
-                      color: AppColors.blaze, size: 22),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Heavy rain expected 3–5pm',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 2),
-                      Text('Near Matigol Falls',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
+                Text('Ready for harder trails?',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  'Five ${HikerProfile.levelName.toLowerCase()} hikes done. '
+                  'Change your level in Profile to unlock more.',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
@@ -96,120 +223,108 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-/// The dark card at the top: one number, stated plainly.
-class _HeroScoreCard extends StatelessWidget {
+/// Dark card at the top. Tapping it opens the live conditions.
+class _HeroCard extends StatelessWidget {
   final Trail trail;
-  const _HeroScoreCard({required this.trail});
+  final VoidCallback onTap;
+  const _HeroCard({required this.trail, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      decoration: BoxDecoration(
-        color: AppColors.pine,
+    return Material(
+      color: AppColors.pine,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
         borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'TRAIL SAFETY SCORE',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
-              color: AppColors.moss,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text(
+                'PICKED FOR YOU TODAY',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.moss,
+                ),
+              ),
+              const SizedBox(height: 12),
               Text(
-                '${trail.safetyScore}',
+                trail.name,
                 style: const TextStyle(
-                  fontSize: 62,
-                  height: 0.95,
+                  fontSize: 30,
+                  height: 1.1,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: -3,
+                  letterSpacing: -0.8,
                   color: Colors.white,
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8, left: 2),
-                child: Text('%',
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-              ),
-              const SizedBox(width: 14),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0x337FB69E),
-                    borderRadius: AppRadius.pill,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.place_outlined,
+                      size: 15, color: AppColors.moss),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      trail.region,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: Color(0xFFC6DCCE), fontSize: 13),
+                    ),
                   ),
-                  child: const Text(
-                    'Safe today',
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _Pill(text: trail.difficulty),
+                  const SizedBox(width: 8),
+                  _Pill(text: trail.duration),
+                  const Spacer(),
+                  const Text(
+                    'See conditions',
                     style: TextStyle(
                       color: AppColors.moss,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ),
+                  const Icon(Icons.chevron_right_rounded,
+                      size: 18, color: AppColors.moss),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.place_outlined, size: 16, color: AppColors.moss),
-              const SizedBox(width: 6),
-              Text(
-                '${trail.name} · ${trail.region}',
-                style: const TextStyle(color: Color(0xFFC6DCCE), fontSize: 13),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// One row in the recommended list.
-class _TrailRow extends StatelessWidget {
-  final Trail trail;
-  const _TrailRow({required this.trail});
+class _Pill extends StatelessWidget {
+  final String text;
+  const _Pill({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => TrailDetailScreen(trail: trail)),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0x337FB69E),
+        borderRadius: AppRadius.pill,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(trail.name,
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 3),
-                Text('${trail.difficulty} · ${trail.duration}',
-                    style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          ScoreChip(score: trail.safetyScore, color: trail.scoreColor),
-        ],
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.moss,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

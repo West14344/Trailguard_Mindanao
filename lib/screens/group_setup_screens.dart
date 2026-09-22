@@ -33,6 +33,28 @@ class _SetupBackBar extends StatelessWidget {
   }
 }
 
+class _ErrorLine extends StatelessWidget {
+  final String message;
+  const _ErrorLine(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.error_outline, size: 16, color: AppColors.alert),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(color: AppColors.alert, fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 class CreateGroupScreen extends StatefulWidget {
@@ -57,7 +79,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   String _generateCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rng = Random();
-    return List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
+    String code;
+    do {
+      code = List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
+    } while (GroupRegistry.exists(code));
+    return code;
   }
 
   @override
@@ -79,8 +105,13 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       setState(() => _error = 'Codes need at least 4 characters.');
       return;
     }
+    if (GroupRegistry.exists(code)) {
+      setState(() => _error = 'That code is already taken. Generate another.');
+      return;
+    }
 
-    GroupSession.start(groupName: name, groupCode: code);
+    final group = GroupRegistry.create(name: name, code: code);
+    GroupSession.setGroup(group);
     Navigator.of(context).pop(true);
   }
 
@@ -186,14 +217,19 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
   void _join() {
     final code = _code.text.trim().toUpperCase();
 
-    // Without a backend there is nothing to check the code against, so
-    // any well-formed code is accepted.
     if (code.length < 4) {
       setState(() => _error = 'That code looks too short.');
       return;
     }
 
-    GroupSession.start(groupName: kGroupName, groupCode: code);
+    final group = GroupRegistry.join(code);
+    if (group == null) {
+      setState(() => _error =
+          'No group found with that code. Check it with whoever created it.');
+      return;
+    }
+
+    GroupSession.setGroup(group);
     Navigator.of(context).pop(true);
   }
 
@@ -228,6 +264,23 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                     const SizedBox(height: 14),
                     _ErrorLine(_error!),
                   ],
+
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 16, color: AppColors.inkSoft),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Groups are stored on this device only. Joining from '
+                          'another phone needs a server connection.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -238,30 +291,6 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _ErrorLine extends StatelessWidget {
-  final String message;
-  const _ErrorLine(this.message);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.error_outline, size: 16, color: AppColors.alert),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: const TextStyle(color: AppColors.alert, fontSize: 13),
-          ),
-        ),
-      ],
     );
   }
 }

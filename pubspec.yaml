@@ -22,6 +22,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_map: ^8.3.1
   latlong2: ^0.10.1
+  image_picker: ^1.2.3
+  http: ^1.6.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -29,6 +32,7 @@ dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # The following section is specific to Flutter packages.
 flutter:
@@ -42,3 +46,13 @@ flutter:
   # the folder, so new images need no further edits here.
   assets:
     - assets/images/
+
+# App icon generation. Run `dart run flutter_launcher_icons` after changing.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  adaptive_icon_background: "#EAF2EA"
+  adaptive_icon_foreground: "assets/images/logo.png"

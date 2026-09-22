@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import 'main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,10 +16,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
 
   bool _showPassword = false;
+  bool _checking = false;
   String? _error;
 
-  /// Front end only: the button unlocks once both fields have something in
-  /// them. Real credential checking waits for the backend.
   bool get _canSubmit =>
       _email.text.trim().isNotEmpty && _password.text.isNotEmpty;
 
@@ -29,25 +29,39 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _logIn() {
+  Future<void> _logIn() async {
     final email = _email.text.trim();
 
-    // Stand-in for server-side validation so the error state is visible
-    // in demos. Delete this block when auth is wired up.
     if (!email.contains('@')) {
       setState(() => _error = 'That email address is missing an @.');
       return;
     }
 
-    setState(() => _error = null);
-    HikerProfile.email = email;
+    setState(() {
+      _checking = true;
+      _error = null;
+    });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Logged in — dashboard arrives in a later module'),
-        backgroundColor: AppColors.pine,
-        behavior: SnackBarBehavior.floating,
-      ),
+    // Brief pause so the loading state is visible. A real sign-in would
+    // await the network here instead.
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    final ok = AccountStore.signIn(email: email, password: _password.text);
+
+    if (!ok) {
+      setState(() {
+        _checking = false;
+        _error = AccountStore.emailExists(email)
+            ? 'That password does not match this account.'
+            : 'No account found for that email. Create one to get started.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainShell()),
+      (route) => false,
     );
   }
 
@@ -57,19 +71,39 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 24, 0),
-              child: BackHeader('Welcome back'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 24, 0),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back, size: 20),
+                    label: const Text('Back'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.forest,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
                 children: [
+                  Text('Welcome back',
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const SizedBox(height: 6),
                   Text(
                     'Log in to pick up your saved trails and group.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 28),
+
                   LabeledField(
                     label: 'Email',
                     hint: 'you@example.com',
@@ -78,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onChanged: (_) => setState(() => _error = null),
                   ),
                   const SizedBox(height: 18),
+
                   LabeledField(
                     label: 'Password',
                     hint: 'Your password',
@@ -98,8 +133,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => _showPassword = !_showPassword),
                     ),
                   ),
+
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -118,6 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ],
+
                   const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerRight,
@@ -138,30 +175,74 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text('Forgot password?'),
                     ),
                   ),
+
+                  if (!AccountStore.hasAnyAccount) ...[
+                    const SizedBox(height: 12),
+                    AppCard(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline,
+                              size: 17, color: AppColors.inkSoft),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'No accounts exist on this device yet. Create '
+                              'one from the welcome screen first.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
+
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Column(
                 children: [
-                  PrimaryButton(
-                    label: 'Log in',
-                    onPressed: _canSubmit ? _logIn : null,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: (_canSubmit && !_checking) ? _logIn : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.forest,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: AppColors.fill,
+                        disabledForegroundColor: AppColors.inkSoft,
+                        elevation: 0,
+                        shape: const RoundedRectangleBorder(
+                            borderRadius: AppRadius.pill),
+                        textStyle: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      child: _checking
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: AppColors.inkSoft,
+                              ),
+                            )
+                          : const Text('Log in'),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        'New here?',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text('New here?',
+                          style: Theme.of(context).textTheme.bodySmall),
                       TextButton(
                         onPressed: () => Navigator.of(context).maybePop(),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.forest,
-                        ),
+                            foregroundColor: AppColors.forest),
                         child: const Text('Create an account'),
                       ),
                     ],

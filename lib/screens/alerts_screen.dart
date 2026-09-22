@@ -23,22 +23,28 @@ class AlertsScreen extends StatelessWidget {
                 Text('Alerts',
                     style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 4),
-                Text('${kAlerts.length} active near your saved trails',
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  kAlerts.isEmpty
+                      ? 'Nothing to report right now'
+                      : '${kAlerts.length} active near your saved trails',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),
 
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              children: [
-                for (final alert in kAlerts) ...[
-                  _AlertCard(alert: alert),
-                  const SizedBox(height: 10),
-                ],
-              ],
-            ),
+            child: kAlerts.isEmpty
+                ? const _NoAlerts()
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                    children: [
+                      for (final alert in kAlerts) ...[
+                        _AlertCard(alert: alert),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
           ),
 
           Padding(
@@ -66,6 +72,48 @@ class AlertsScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Quiet reassurance rather than an error — no alerts is good news.
+class _NoAlerts extends StatelessWidget {
+  const _NoAlerts();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: AppColors.mist,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_rounded,
+                  size: 42, color: AppColors.forest),
+            ),
+            const SizedBox(height: 20),
+            Text('All clear',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Weather warnings and hazards reported by other hikers show up '
+              'here. You will be notified as soon as one appears.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(height: 1.55),
+            ),
+          ],
+        ),
       ),
     );
   }
