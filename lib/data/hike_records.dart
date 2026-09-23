@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import 'mock_data.dart';
 
@@ -33,16 +34,14 @@ class HikeRecord {
         _ => AppColors.blaze,
       };
 
-  /// Minutes per kilometre, or null when the distance is too short to mean
-  /// anything.
   double? get paceMinPerKm {
     if (distanceKm < 0.05) return null;
     return movingTime.inSeconds / 60 / distanceKm;
   }
 }
 
-/// In-memory log of completed hikes. Add shared_preferences to persist
-/// these between launches.
+/// Completed hikes for the signed-in hiker. Loaded from Firestore at login
+/// and appended locally as hikes finish.
 class HikeLog {
   static final List<HikeRecord> records = [];
 
@@ -150,7 +149,8 @@ class HikeBadge {
   });
 }
 
-/// The hike currently being tracked. Null fields mean nothing is running.
+/// The hike currently being tracked. Kept in memory while running and
+/// written to Firestore once, when it finishes.
 class ActiveHike {
   static Trail? trail;
   static double distanceKm = 0;
@@ -182,6 +182,8 @@ class ActiveHike {
     );
 
     HikeLog.add(record);
+    // Shown locally at once; the cloud write happens in the background.
+    FirebaseService.saveHike(record);
     clear();
     return record;
   }

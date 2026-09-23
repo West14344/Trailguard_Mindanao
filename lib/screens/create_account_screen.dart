@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'experience_screen.dart';
@@ -19,9 +19,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _contactNumber = TextEditingController();
 
   bool _showPassword = false;
+  bool _saving = false;
   String? _error;
 
-  /// Front end only: unlocks once every field has something in it.
   bool get _canContinue =>
       _name.text.trim().isNotEmpty &&
       _email.text.trim().isNotEmpty &&
@@ -39,11 +39,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     final email = _email.text.trim();
 
-    // Stand-in checks so the error state is visible in demos.
-    // Replace with server-side validation when auth is wired up.
     if (!email.contains('@')) {
       setState(() => _error = 'That email address is missing an @.');
       return;
@@ -53,14 +51,30 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
-    setState(() => _error = null);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
 
-    // Nothing is persisted yet; this carries the details into later screens.
-    HikerProfile.fullName = _name.text.trim();
-    HikerProfile.email = email;
-    HikerProfile.emergencyContact = _contactName.text.trim();
-    HikerProfile.emergencyNumber = _contactNumber.text.trim();
+    final error = await FirebaseService.signUp(
+      fullName: _name.text.trim(),
+      email: email,
+      password: _password.text,
+      emergencyContactName: _contactName.text.trim(),
+      emergencyContactNumber: _contactNumber.text.trim(),
+    );
 
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _saving = false;
+        _error = error;
+      });
+      return;
+    }
+
+    setState(() => _saving = false);
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ExperienceScreen()),
     );
@@ -77,7 +91,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               child: Row(
                 children: [
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.arrow_back, size: 20),
                     label: const Text('Back'),
                     style: TextButton.styleFrom(
@@ -96,14 +112,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
-                  // Progress across the three onboarding steps.
                   const _StepBar(step: 1),
                   const SizedBox(height: 18),
 
-                  Text(
-                    'Create account',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
+                  Text('Create account',
+                      style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 8),
                   Text(
                     'Takes about a minute. You can change any of this later.',
@@ -151,9 +164,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
 
                   const SizedBox(height: 30),
-
-                  // The two emergency fields belong together, so they get
-                  // their own labelled group.
                   const SectionLabel('Emergency contact'),
                   const SizedBox(height: 14),
 
@@ -218,8 +228,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: PrimaryButton(
-                label: 'Continue',
-                onPressed: _canContinue ? _continue : null,
+                label: _saving ? 'Creating account…' : 'Continue',
+                onPressed: (_canContinue && !_saving) ? _continue : null,
               ),
             ),
           ],

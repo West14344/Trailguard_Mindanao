@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
+﻿import 'package:flutter/material.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'main_shell.dart';
@@ -42,19 +42,17 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    // Brief pause so the loading state is visible. A real sign-in would
-    // await the network here instead.
-    await Future.delayed(const Duration(milliseconds: 600));
+    final error = await FirebaseService.signIn(
+      email: email,
+      password: _password.text,
+    );
+
     if (!mounted) return;
 
-    final ok = AccountStore.signIn(email: email, password: _password.text);
-
-    if (!ok) {
+    if (error != null) {
       setState(() {
         _checking = false;
-        _error = AccountStore.emailExists(email)
-            ? 'That password does not match this account.'
-            : 'No account found for that email. Create one to get started.';
+        _error = error;
       });
       return;
     }
@@ -62,6 +60,26 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainShell()),
       (route) => false,
+    );
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _email.text.trim();
+    if (!email.contains('@')) {
+      setState(() => _error =
+          'Enter your email above first, then tap Forgot password.');
+      return;
+    }
+
+    final error = await FirebaseService.sendPasswordReset(email);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Reset link sent to $email. Check your inbox.'),
+        backgroundColor: AppColors.pine,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -159,15 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Password reset needs the backend'),
-                            backgroundColor: AppColors.pine,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
+                      onPressed: _forgotPassword,
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.forest,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -175,28 +185,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text('Forgot password?'),
                     ),
                   ),
-
-                  if (!AccountStore.hasAnyAccount) ...[
-                    const SizedBox(height: 12),
-                    AppCard(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.info_outline,
-                              size: 17, color: AppColors.inkSoft),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'No accounts exist on this device yet. Create '
-                              'one from the welcome screen first.',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

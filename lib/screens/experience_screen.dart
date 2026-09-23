@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'permissions_screen.dart';
@@ -35,6 +36,8 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
 
   void _continue() {
     HikerProfile.experienceLevel = '${_levels[_selected][0]} Hiker';
+    // Saved in the background; onboarding does not wait on the network.
+    FirebaseService.saveProfile();
 
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const PermissionsScreen()),
@@ -127,8 +130,6 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
                       onChanged: (v) => setState(() => _difficulty = v),
                     ),
                   ),
-                  // Naming what the slider position means, so the control
-                  // isn't just an abstract line.
                   Text(
                     _difficultyHint,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -151,7 +152,6 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
   }
 }
 
-/// One selectable experience level.
 class _LevelOption extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -209,7 +209,6 @@ class _LevelOption extends StatelessWidget {
   }
 }
 
-/// Three-segment progress bar shared by the onboarding steps.
 class _StepBar extends StatelessWidget {
   final int step;
   const _StepBar({required this.step});

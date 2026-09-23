@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../data/mock_data.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 
@@ -15,7 +16,6 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _name = TextEditingController(text: HikerProfile.fullName);
-  late final _email = TextEditingController(text: HikerProfile.email);
   late final _contactName =
       TextEditingController(text: HikerProfile.emergencyContact);
   late final _contactNumber =
@@ -23,6 +23,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   String? _photoPath = HikerProfile.photoPath;
   late String _level = HikerProfile.experienceLevel;
+  bool _saving = false;
 
   static const _levels = [
     'Beginner Hiker',
@@ -33,15 +34,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _name.dispose();
-    _email.dispose();
     _contactName.dispose();
     _contactNumber.dispose();
     super.dispose();
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(
+    final file = await ImagePicker().pickImage(
       source: source,
       maxWidth: 800,
       imageQuality: 85,
@@ -97,15 +96,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
+    setState(() => _saving = true);
+
     HikerProfile.fullName = _name.text.trim();
-    HikerProfile.email = _email.text.trim();
     HikerProfile.emergencyContact = _contactName.text.trim();
     HikerProfile.emergencyNumber = _contactNumber.text.trim();
     HikerProfile.experienceLevel = _level;
     HikerProfile.photoPath = _photoPath;
 
-    Navigator.of(context).pop(true);
+    try {
+      await FirebaseService.saveProfile();
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save changes. Check your connection.'),
+          backgroundColor: AppColors.alert,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -157,8 +171,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               decoration: BoxDecoration(
                                 color: AppColors.forest,
                                 shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: AppColors.paper, width: 3),
+                                border: Border.all(
+                                    color: AppColors.paper, width: 3),
                               ),
                               child: const Icon(Icons.photo_camera_rounded,
                                   size: 17, color: Colors.white),
@@ -172,8 +186,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Center(
                     child: TextButton(
                       onPressed: _choosePhotoSource,
-                      style:
-                          TextButton.styleFrom(foregroundColor: AppColors.forest),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppColors.forest),
                       child: const Text('Change photo'),
                     ),
                   ),
@@ -186,11 +200,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     keyboardType: TextInputType.name,
                   ),
                   const SizedBox(height: 18),
-                  LabeledField(
-                    label: 'Email',
-                    hint: 'you@example.com',
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
+
+                  // Email is the login identity, so it is shown rather than
+                  // editable here. Changing it needs re-authentication.
+                  Text('Email',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 7),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 15),
+                    decoration: BoxDecoration(
+                      color: AppColors.fill,
+                      borderRadius: AppRadius.field,
+                    ),
+                    child: Text(
+                      HikerProfile.email,
+                      style: const TextStyle(
+                          fontSize: 15, color: AppColors.inkSoft),
+                    ),
                   ),
 
                   const SizedBox(height: 26),
@@ -227,7 +255,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: PrimaryButton(label: 'Save changes', onPressed: _save),
+              child: PrimaryButton(
+                label: _saving ? 'Saving…' : 'Save changes',
+                onPressed: _saving ? null : _save,
+              ),
             ),
           ],
         ),
@@ -296,6 +327,18 @@ class ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = photoPath;
 
+    final initials = Center(
+      child: Text(
+        HikerProfile.initials,
+        style: TextStyle(
+          fontSize: size * 0.35,
+          fontWeight: FontWeight.w700,
+          color: AppColors.moss,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+
     return Container(
       width: size,
       height: size,
@@ -305,31 +348,12 @@ class ProfileAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: path == null
-          ? Center(
-              child: Text(
-                HikerProfile.initials,
-                style: TextStyle(
-                  fontSize: size * 0.35,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.moss,
-                  letterSpacing: 1,
-                ),
-              ),
-            )
+          ? initials
           : Image.file(
               File(path),
               fit: BoxFit.cover,
               // A picked file can vanish between sessions; fall back quietly.
-              errorBuilder: (_, _, _) => Center(
-                child: Text(
-                  HikerProfile.initials,
-                  style: TextStyle(
-                    fontSize: size * 0.35,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.moss,
-                  ),
-                ),
-              ),
+              errorBuilder: (_, _, _) => initials,
             ),
     );
   }

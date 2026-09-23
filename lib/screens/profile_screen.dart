@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../data/mock_data.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'achievements_screen.dart';
@@ -32,7 +33,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ActiveHike.isActive
               ? 'You have a hike in progress. Logging out will discard it '
                   'without saving.'
-              : 'You will need to sign in again to see your trails and group.',
+              : 'Your hikes and profile are saved. Log back in any time to '
+                  'pick up where you left off.',
           style: const TextStyle(height: 1.5),
         ),
         actions: [
@@ -52,11 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    // Clear everything tied to this hiker before leaving the session.
-    ActiveHike.clear();
-    GroupSession.leave();
-    HikeLog.records.clear();
-    HikerProfile.signOut();
+    await FirebaseService.signOut();
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -223,8 +221,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           const SizedBox(height: 24),
-          // Sits at the bottom, styled as a warning rather than a primary
-          // action, so it is hard to hit by accident.
           SecondaryButton(
             label: 'Log out',
             icon: Icons.logout_rounded,

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "782990163085",
+    "project_id": "trailguard-ai",
+    "storage_bucket": "trailguard-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:782990163085:android:b0299f1c0bced1cbc636c4",
+        "android_client_info": {
+          "package_name": "com.example.trailguard_ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxtAeQlgtanW-JAT68KPbucRzQGFfC9S4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

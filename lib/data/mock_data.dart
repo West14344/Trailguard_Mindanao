@@ -89,10 +89,10 @@ class TrailAlert {
       level == AlertLevel.notice ? AppColors.ink : Colors.white;
 }
 
-/// Populated by the hazard-report and weather services once a backend exists.
+/// Populated by the hazard-report and weather services once connected.
 const kAlerts = <TrailAlert>[];
 
-/// Single source of truth for the signed-in hiker while there is no backend.
+/// The signed-in hiker. Filled from Firestore at login, cleared at logout.
 class HikerProfile {
   static String fullName = '';
   static String email = '';
@@ -121,8 +121,7 @@ class HikerProfile {
         .toUpperCase();
   }
 
-  /// Wipes the signed-in hiker. Called on logout so the next person to
-  /// use the device does not inherit this one's details.
+  /// Wipes the signed-in hiker so the next person does not inherit it.
   static void signOut() {
     fullName = '';
     email = '';
@@ -155,7 +154,6 @@ class GroupMember {
   bool get isYou => email.toLowerCase() == HikerProfile.email.toLowerCase();
 }
 
-/// One group, keyed by its share code.
 class TrailGroup {
   final String name;
   final String code;
@@ -168,13 +166,11 @@ class TrailGroup {
   });
 }
 
-/// Stand-in for a groups table. Lives in memory on this device, so codes
-/// validate against real groups but cannot be seen by another phone.
-/// Replace with Firebase Realtime Database for true multi-device sync.
+/// Local group registry. Codes validate against groups created on this
+/// device. Moves to Firestore next for cross-device sync.
 class GroupRegistry {
   static final Map<String, TrailGroup> _groups = {};
 
-  /// Trailhead the group starts from. Members are seeded near this point.
   static const _anchorLat = 6.9875;
   static const _anchorLng = 125.2731;
 
@@ -182,7 +178,6 @@ class GroupRegistry {
 
   static TrailGroup? find(String code) => _groups[code.toUpperCase()];
 
-  /// Creates a group with the current hiker as its first member.
   static TrailGroup create({required String name, required String code}) {
     final group = TrailGroup(
       name: name,
@@ -193,8 +188,6 @@ class GroupRegistry {
     return group;
   }
 
-  /// Adds the current hiker to an existing group. Returns null when the
-  /// code matches nothing.
   static TrailGroup? join(String code) {
     final group = _groups[code.toUpperCase()];
     if (group == null) return null;
@@ -208,7 +201,6 @@ class GroupRegistry {
     return group;
   }
 
-  /// Spreads members out along the trail so the map is readable.
   static GroupMember _memberForCurrentHiker(int index) {
     return GroupMember(
       name: HikerProfile.fullName.isEmpty ? 'Hiker' : HikerProfile.fullName,
@@ -228,7 +220,6 @@ class GroupRegistry {
   }
 }
 
-/// Tracks which group the hiker is currently in.
 class GroupSession {
   static TrailGroup? current;
 
@@ -244,78 +235,4 @@ class GroupSession {
     if (group != null) GroupRegistry.leave(group.code);
     current = null;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Accounts
-// ---------------------------------------------------------------------------
-
-/// Stand-in for a user table. Holds accounts in memory for the session, so
-/// signing up and logging back in works without a backend. Replace with
-/// Firebase Auth or an API call when one exists.
-class AccountStore {
-  static final Map<String, _Account> _accounts = {};
-
-  static void register({
-    required String email,
-    required String password,
-    required String fullName,
-    required String emergencyContact,
-    required String emergencyNumber,
-  }) {
-    _accounts[email.toLowerCase()] = _Account(
-      password: password,
-      fullName: fullName,
-      emergencyContact: emergencyContact,
-      emergencyNumber: emergencyNumber,
-    );
-  }
-
-  static bool emailExists(String email) =>
-      _accounts.containsKey(email.toLowerCase());
-
-  /// Loads the account into HikerProfile when the password matches.
-  static bool signIn({required String email, required String password}) {
-    final account = _accounts[email.toLowerCase()];
-    if (account == null || account.password != password) return false;
-
-    HikerProfile.fullName = account.fullName;
-    HikerProfile.email = email.toLowerCase();
-    HikerProfile.emergencyContact = account.emergencyContact;
-    HikerProfile.emergencyNumber = account.emergencyNumber;
-    HikerProfile.experienceLevel = account.experienceLevel;
-    HikerProfile.photoPath = account.photoPath;
-    return true;
-  }
-
-  /// Keeps the stored account in step with profile edits.
-  static void syncFromProfile() {
-    final account = _accounts[HikerProfile.email.toLowerCase()];
-    if (account == null) return;
-    account.fullName = HikerProfile.fullName;
-    account.emergencyContact = HikerProfile.emergencyContact;
-    account.emergencyNumber = HikerProfile.emergencyNumber;
-    account.experienceLevel = HikerProfile.experienceLevel;
-    account.photoPath = HikerProfile.photoPath;
-  }
-
-  static bool get hasAnyAccount => _accounts.isNotEmpty;
-}
-
-class _Account {
-  final String password;
-  String fullName;
-  String emergencyContact;
-  String emergencyNumber;
-  String experienceLevel;
-  String? photoPath;
-
-  _Account({
-    required this.password,
-    required this.fullName,
-    required this.emergencyContact,
-    required this.emergencyNumber,
-    this.experienceLevel = 'Intermediate Hiker',
-    this.photoPath,
-  });
 }
