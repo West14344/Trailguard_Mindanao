@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
-import '../services/firebase_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/app_widgets.dart';
-import 'permissions_screen.dart';
+﻿import "package:flutter/material.dart";
+import "../data/mock_data.dart";
+import "../services/firebase_service.dart";
+import "../theme/app_theme.dart";
+import "../widgets/app_widgets.dart";
+import "permissions_screen.dart";
 
 class ExperienceScreen extends StatefulWidget {
   const ExperienceScreen({super.key});
@@ -14,28 +14,29 @@ class ExperienceScreen extends StatefulWidget {
 
 class _ExperienceScreenState extends State<ExperienceScreen> {
   int _selected = 1;
-  double _difficulty = 0.5;
 
+  /// Level, one-line summary, and what it unlocks, so the choice is
+  /// informed rather than a guess.
   static const _levels = [
-    ['Beginner', 'New to hiking'],
-    ['Intermediate', 'Hike a few times a year'],
-    ['Advanced', 'Frequent, technical trails'],
+    [
+      "Beginner",
+      "New to hiking",
+      "Gentle day trails and waterfalls, well-marked paths",
+    ],
+    [
+      "Intermediate",
+      "Hike a few times a year",
+      "Longer climbs with steep sections and rough ground",
+    ],
+    [
+      "Advanced",
+      "Frequent, technical trails",
+      "Multi-day summits, scrambling and exposed ridges",
+    ],
   ];
 
-  String get _difficultyLabel {
-    if (_difficulty < 0.34) return 'Gentle';
-    if (_difficulty < 0.67) return 'Moderate';
-    return 'Demanding';
-  }
-
-  String get _difficultyHint {
-    if (_difficulty < 0.34) return 'Well-marked paths, gradual climbs';
-    if (_difficulty < 0.67) return 'Some steep sections and rough ground';
-    return 'Long climbs, scrambling, exposed ridges';
-  }
-
   void _continue() {
-    HikerProfile.experienceLevel = '${_levels[_selected][0]} Hiker';
+    HikerProfile.experienceLevel = "${_levels[_selected][0]} Hiker";
     // Saved in the background; onboarding does not wait on the network.
     FirebaseService.saveProfile();
 
@@ -57,13 +58,11 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    label: const Text("Back"),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -83,8 +82,9 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This changes how strictly trails are scored for you. The '
-                    'same trail can be green for one hiker and red for another.',
+                    "This changes how strictly trails are scored for you. "
+                    "The same trail can be green for one hiker and red for "
+                    "another.",
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -96,43 +96,28 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
                     _LevelOption(
                       title: _levels[i][0],
                       subtitle: _levels[i][1],
+                      detail: _levels[i][2],
                       selected: _selected == i,
                       onTap: () => setState(() => _selected = i),
                     ),
                     const SizedBox(height: 12),
                   ],
 
-                  const SizedBox(height: 18),
-
+                  const SizedBox(height: 10),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionLabel('Preferred difficulty'),
-                      Text(
-                        _difficultyLabel,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: AppColors.forest),
+                      Icon(Icons.info_outline,
+                          size: 16, color: AppColors.inkSoft),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "You can change this any time in Profile as you "
+                          "gain experience.",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
                     ],
-                  ),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: AppColors.forest,
-                      inactiveTrackColor: AppColors.fill,
-                      thumbColor: AppColors.forest,
-                      overlayColor: const Color(0x1F1B7A4B),
-                      trackHeight: 5,
-                    ),
-                    child: Slider(
-                      value: _difficulty,
-                      onChanged: (v) => setState(() => _difficulty = v),
-                    ),
-                  ),
-                  Text(
-                    _difficultyHint,
-                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -140,10 +125,7 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
 
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: PrimaryButton(
-                label: 'Continue',
-                onPressed: _continue,
-              ),
+              child: PrimaryButton(label: "Continue", onPressed: _continue),
             ),
           ],
         ),
@@ -152,15 +134,18 @@ class _ExperienceScreenState extends State<ExperienceScreen> {
   }
 }
 
+/// One selectable experience level.
 class _LevelOption extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String detail;
   final bool selected;
   final VoidCallback onTap;
 
   const _LevelOption({
     required this.title,
     required this.subtitle,
+    required this.detail,
     required this.selected,
     required this.onTap,
   });
@@ -182,25 +167,60 @@ class _LevelOption extends StatelessWidget {
               width: selected ? 1.8 : 1,
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title,
+                            style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 2),
+                        Text(subtitle,
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: selected ? AppColors.forest : AppColors.line,
+                  ),
+                ],
+              ),
+              // Only the chosen level explains itself, so the list stays
+              // scannable.
+              if (selected) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: AppRadius.field,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.terrain_rounded,
+                          size: 15, color: AppColors.forest),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          detail,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: selected ? AppColors.forest : AppColors.line,
-              ),
+              ],
             ],
           ),
         ),
@@ -209,6 +229,7 @@ class _LevelOption extends StatelessWidget {
   }
 }
 
+/// Three-segment progress bar shared by the onboarding steps.
 class _StepBar extends StatelessWidget {
   final int step;
   const _StepBar({required this.step});
@@ -217,7 +238,7 @@ class _StepBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text('STEP $step OF 3', style: Theme.of(context).textTheme.labelSmall),
+        Text("STEP $step OF 3", style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(width: 12),
         Expanded(
           child: Row(
@@ -239,3 +260,4 @@ class _StepBar extends StatelessWidget {
     );
   }
 }
+

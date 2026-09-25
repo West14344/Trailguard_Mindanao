@@ -2,6 +2,7 @@
 import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import 'hiking_loader.dart';
 import 'main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -42,6 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
+    // Check the credentials first. A wrong password should fail on this
+    // screen, not behind a loading animation.
     final error = await FirebaseService.signIn(
       email: email,
       password: _password.text,
@@ -53,9 +56,21 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _checking = false;
         _error = error;
+        // Clear the password so a retry starts clean.
+        _password.clear();
       });
       return;
     }
+
+    // Signed in, so the animation covers loading the profile and hikes.
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const HikingLoader(message: "Welcome back"),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 1400));
+    if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const MainShell()),
@@ -95,8 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
@@ -129,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     onChanged: (_) => setState(() => _error = null),
                   ),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
 
                   LabeledField(
                     label: 'Password',
@@ -153,17 +168,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                   if (_error != null) ...[
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline,
+                        Icon(Icons.error_outline,
                             size: 16, color: AppColors.alert),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _error!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.alert,
                               fontSize: 13,
                             ),
@@ -173,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -182,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         foregroundColor: AppColors.forest,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
-                      child: const Text('Forgot password?'),
+                      child: Text('Forgot password?'),
                     ),
                   ),
                 ],
@@ -199,18 +214,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: FilledButton(
                       onPressed: (_canSubmit && !_checking) ? _logIn : null,
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.forest,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.accentFill,
+                        foregroundColor: AppColors.onAccent,
                         disabledBackgroundColor: AppColors.fill,
                         disabledForegroundColor: AppColors.inkSoft,
                         elevation: 0,
                         shape: const RoundedRectangleBorder(
                             borderRadius: AppRadius.pill),
-                        textStyle: const TextStyle(
+                        textStyle: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       child: _checking
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 22,
                               height: 22,
                               child: CircularProgressIndicator(
@@ -218,10 +233,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AppColors.inkSoft,
                               ),
                             )
-                          : const Text('Log in'),
+                          : Text('Log in'),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -244,3 +259,17 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

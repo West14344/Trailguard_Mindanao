@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../data/mock_data.dart';
 import '../services/weather_service.dart';
@@ -50,11 +50,11 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
-                      textStyle: const TextStyle(
+                      textStyle: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -63,7 +63,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                   const Spacer(),
                   IconButton(
                     onPressed: () => setState(() => _conditions = _load()),
-                    icon: const Icon(Icons.refresh_rounded,
+                    icon: Icon(Icons.refresh_rounded,
                         color: AppColors.forest),
                     tooltip: 'Refresh conditions',
                   ),
@@ -79,7 +79,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 4),
                   Text(
-                    '${trail.region} · ${trail.difficulty} · ${trail.duration}',
+                    '${trail.region} Â· ${trail.difficulty} Â· ${trail.duration}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
 
@@ -103,28 +103,28 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                     },
                   ),
 
-                  const SizedBox(height: 30),
+                  SizedBox(height: 30),
                   PrimaryButton(
                     label: alreadyRunning ? 'Hike already running' : 'Start hike',
                     icon: Icons.play_arrow_rounded,
                     onPressed: alreadyRunning ? null : _startHike,
                   ),
                   if (alreadyRunning) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       'Finish the hike on your Home tab before starting another.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   SecondaryButton(
                     label: 'Report hazard',
                     icon: Icons.flag_outlined,
                     color: AppColors.blaze,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (_) => const HazardReportScreen()),
+                          builder: (_) => HazardReportScreen(trail: trail)),
                     ),
                   ),
                 ],
@@ -163,7 +163,7 @@ class _ConditionsView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Center(
-          child: Text('Live conditions · updated just now',
+          child: Text('Live conditions Â· updated just now',
               style: Theme.of(context).textTheme.bodySmall),
         ),
 
@@ -183,7 +183,7 @@ class _ConditionsView extends StatelessWidget {
           icon: Icons.water_drop_outlined,
           label: 'Rainfall risk',
           value:
-              '${conditions.rainfallRisk} · ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
+              '${conditions.rainfallRisk} Â· ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
         ),
         const SizedBox(height: 10),
         _Row(
@@ -209,7 +209,7 @@ class _LoadingConditions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 190,
           height: 190,
           child: Center(
@@ -217,7 +217,7 @@ class _LoadingConditions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        Text('Checking live conditions…',
+        Text('Checking live conditionsâ€¦',
             style: Theme.of(context).textTheme.titleMedium),
       ],
     );
@@ -234,7 +234,7 @@ class _ConditionsError extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const Icon(Icons.cloud_off_rounded,
+          Icon(Icons.cloud_off_rounded,
               size: 38, color: AppColors.inkSoft),
           const SizedBox(height: 12),
           Text("Couldn't reach the weather service",
@@ -283,3 +283,15 @@ class _Row extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+

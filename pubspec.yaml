@@ -1,5 +1,5 @@
-name: trailguard_ai
-description: "TrailGuard AI — trail safety companion."
+﻿name: trailguard_ai
+description: "TrailGuard Mindanao - trail safety companion."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -27,6 +27,7 @@ dependencies:
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
   cloud_firestore: ^6.10.0
+  geolocator: ^14.0.3
 
 dev_dependencies:
   flutter_test:

@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
-import '../data/hike_records.dart';
-import '../data/mock_data.dart';
-import '../services/firebase_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/app_widgets.dart';
-import 'achievements_screen.dart';
-import 'edit_profile_screen.dart';
-import 'welcome_screen.dart';
+﻿import "package:flutter/material.dart";
+import "../data/hike_records.dart";
+import "../data/mock_data.dart";
+import "../services/firebase_service.dart";
+import "../theme/app_theme.dart";
+import "../widgets/app_widgets.dart";
+import "achievements_screen.dart";
+import "edit_profile_screen.dart";
+import "welcome_screen.dart";
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,25 +28,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Log out?'),
+        title: Text("Log out?"),
         content: Text(
           ActiveHike.isActive
-              ? 'You have a hike in progress. Logging out will discard it '
-                  'without saving.'
-              : 'Your hikes and profile are saved. Log back in any time to '
-                  'pick up where you left off.',
-          style: const TextStyle(height: 1.5),
+              ? "You have a hike in progress. Logging out will discard it "
+                  "without saving."
+              : "Your hikes and profile are saved. Log back in any time to "
+                  "pick up where you left off.",
+          style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             style: TextButton.styleFrom(foregroundColor: AppColors.inkSoft),
-            child: const Text('Stay signed in'),
+            child: Text("Stay signed in"),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.alert),
-            child: const Text('Log out'),
+            child: Text("Log out"),
           ),
         ],
       ),
@@ -74,12 +74,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
           Center(child: ProfileAvatar(photoPath: HikerProfile.photoPath)),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Center(
             child: Text(HikerProfile.fullName,
                 style: Theme.of(context).textTheme.headlineMedium),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -88,8 +88,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: AppRadius.pill,
               ),
               child: Text(
-                HikerProfile.experienceLevel,
-                style: const TextStyle(
+                // Only the level word is translated; the stored value
+                // stays English so scoring keeps working.
+                "${HikerProfile.levelName} ${"Hiker"}",
+                style: TextStyle(
                   color: AppColors.forest,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -99,10 +101,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 18),
           Center(
-            child: SizedBox(
-              width: 180,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
               child: SecondaryButton(
-                label: 'Edit profile',
+                label: "Edit profile",
                 icon: Icons.edit_outlined,
                 onPressed: () => _push(const EditProfileScreen()),
               ),
@@ -114,15 +116,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Hikes completed',
-                  value: '${HikeLog.totalHikes}',
+                  label: "Hikes completed",
+                  value: "${HikeLog.totalHikes}",
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _StatCard(
-                  label: 'Distance',
-                  value: '${HikeLog.totalKm.toStringAsFixed(1)} km',
+                  label: "Distance",
+                  value: "${HikeLog.totalKm.toStringAsFixed(1)} km",
                 ),
               ),
             ],
@@ -132,21 +134,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Expanded(
                 child: _StatCard(
-                  label: 'Time on trail',
-                  value: hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m',
+                  label: "Time on trail",
+                  value: hours > 0 ? "${hours}h ${minutes}m" : "${minutes}m",
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: _StatCard(
-                  label: 'Badges',
-                  value: '${HikeLog.earnedBadgeCount}',
+                  label: "Badges",
+                  value: "${HikeLog.earnedBadgeCount}",
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           AppCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             onTap: () => _push(const AchievementsScreen()),
@@ -159,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.mist,
                     borderRadius: AppRadius.field,
                   ),
-                  child: const Icon(Icons.emoji_events_outlined,
+                  child: Icon(Icons.emoji_events_outlined,
                       size: 22, color: AppColors.forest),
                 ),
                 const SizedBox(width: 13),
@@ -167,62 +169,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('View achievements',
+                      Text("View achievements",
                           style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         HikeLog.totalHikes == 0
-                            ? 'No mountains climbed yet'
-                            : '${HikeLog.uniqueMountains.length} mountains · '
-                                '${HikeLog.earnedBadgeCount} badges',
+                            ? "No hikes yet"
+                            : "${HikeLog.uniqueMountains.length} "
+                                "${"Mountains climbed".toLowerCase()} - "
+                                "${HikeLog.earnedBadgeCount} "
+                                "${"Badges".toLowerCase()}",
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded,
+                Icon(Icons.chevron_right_rounded,
                     size: 20, color: AppColors.inkSoft),
               ],
             ),
           ),
 
-          const SizedBox(height: 28),
-          const SectionLabel('Account'),
-          const SizedBox(height: 12),
+          SizedBox(height: 28),
+          SectionLabel("Account"),
+          SizedBox(height: 12),
           AppCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _AccountRow(
                   icon: Icons.mail_outline_rounded,
-                  label: 'Email',
+                  label: "Email",
                   trailing: HikerProfile.email,
                 ),
-                const Divider(height: 1, color: AppColors.line),
+                Divider(height: 1, color: AppColors.line),
                 _AccountRow(
                   icon: Icons.person_pin_circle_outlined,
-                  label: 'Emergency contact',
+                  label: "Emergency contact",
                   trailing: HikerProfile.emergencyContact,
                 ),
-                const Divider(height: 1, color: AppColors.line),
+                Divider(height: 1, color: AppColors.line),
+                _AccountRow(
+                  icon: Icons.alternate_email_rounded,
+                  label: "Contact Gmail",
+                  trailing: HikerProfile.emergencyEmail,
+                ),
+                Divider(height: 1, color: AppColors.line),
                 _AccountRow(
                   icon: Icons.phone_outlined,
-                  label: 'Contact number',
+                  label: "Contact number",
                   trailing: HikerProfile.emergencyNumber,
                 ),
-                const Divider(height: 1, color: AppColors.line),
-                const _AccountRow(
+                Divider(height: 1, color: AppColors.line),
+
+                // Tappable, so the language can be changed without
+                // hunting through settings.
+                _AccountRow(
                   icon: Icons.download_outlined,
-                  label: 'Offline maps',
-                  trailing: 'None saved',
+                  label: "Offline maps",
+                  trailing: "None saved",
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           SecondaryButton(
-            label: 'Log out',
+            label: "Log out",
             icon: Icons.logout_rounded,
             color: AppColors.alert,
             onPressed: _logOut,
@@ -230,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              'TrailGuard AI · Version 1.0.0',
+              "TrailGuard Mindanao - Version 1.0.0",
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -253,10 +266,10 @@ class _StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w700,
               letterSpacing: -1,
@@ -287,20 +300,35 @@ class _AccountRow extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 20, color: AppColors.inkSoft),
-          const SizedBox(width: 13),
+          SizedBox(width: 13),
           Expanded(
             child: Text(label, style: Theme.of(context).textTheme.titleMedium),
           ),
           Flexible(
             child: Text(
-              trailing.isEmpty ? '—' : trailing,
+              trailing.isEmpty ? "-" : trailing,
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          ),
-        ],
+          ),        ],
       ),
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

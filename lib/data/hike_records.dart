@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import 'mock_data.dart';
@@ -158,6 +158,11 @@ class ActiveHike {
   static bool isPaused = false;
   static bool isAutoPaused = false;
 
+  /// Last GPS fix, so SOS and hazard reports know where the hiker is.
+  static double? latitude;
+  static double? longitude;
+  static double? accuracyM;
+
   static bool get isActive => trail != null;
 
   static void start(Trail t) {
@@ -166,6 +171,9 @@ class ActiveHike {
     elapsed = Duration.zero;
     isPaused = false;
     isAutoPaused = false;
+    latitude = null;
+    longitude = null;
+    accuracyM = null;
   }
 
   static HikeRecord? finish() {
@@ -194,6 +202,9 @@ class ActiveHike {
     elapsed = Duration.zero;
     isPaused = false;
     isAutoPaused = false;
+    latitude = null;
+    longitude = null;
+    accuracyM = null;
   }
 }
 
@@ -204,3 +215,14 @@ String formatDuration(Duration d) {
   final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
   return h > 0 ? '$h:$m:$s' : '$m:$s';
 }
+
+
+
+
+
+
+
+
+
+
+

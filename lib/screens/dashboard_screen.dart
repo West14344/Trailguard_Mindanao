@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../data/mock_data.dart';
 import '../data/mountains.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'hike_tracking_view.dart';
@@ -56,35 +57,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(_greeting,
                         style: Theme.of(context).textTheme.bodySmall),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(firstName,
                         style: Theme.of(context).textTheme.headlineMedium),
                   ],
                 ),
               ),
               IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_none_rounded,
-                    color: AppColors.ink),
-                tooltip: 'Notifications',
+                onPressed: () {
+                  final next = AppTheme.isDark
+                      ? ThemeMode.light
+                      : ThemeMode.dark;
+                  AppTheme.setMode(next);
+                  FirebaseService.saveTheme(AppTheme.modeCode);
+                },
+                icon: Icon(
+                  AppTheme.isDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_outlined,
+                  color: AppColors.ink,
+                ),
+                tooltip: AppTheme.isDark
+                    ? "Switch to light mode"
+                    : "Switch to dark mode",
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
 
           _HeroCard(trail: featured, onTap: () => _openTrail(featured)),
 
           if (HikeLog.totalHikes > 0) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             _TotalsStrip(),
           ],
 
           if (HikeLog.readyToLevelUp) ...[
-            const SizedBox(height: 14),
-            const _LevelUpNudge(),
+            SizedBox(height: 14),
+            _LevelUpNudge(),
           ],
 
-          const SizedBox(height: 26),
+          SizedBox(height: 26),
           Row(
             children: [
               Expanded(
@@ -169,7 +182,7 @@ class _Total extends StatelessWidget {
         children: [
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
@@ -199,7 +212,7 @@ class _LevelUpNudge extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.trending_up_rounded,
+          Icon(Icons.trending_up_rounded,
               size: 22, color: AppColors.blaze),
           const SizedBox(width: 12),
           Expanded(
@@ -242,7 +255,7 @@ class _HeroCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'PICKED FOR YOU TODAY',
                 style: TextStyle(
                   fontSize: 11,
@@ -251,10 +264,10 @@ class _HeroCard extends StatelessWidget {
                   color: AppColors.moss,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Text(
                 trail.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 30,
                   height: 1.1,
                   fontWeight: FontWeight.w700,
@@ -262,31 +275,31 @@ class _HeroCard extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.place_outlined,
+                  Icon(Icons.place_outlined,
                       size: 15, color: AppColors.moss),
-                  const SizedBox(width: 5),
+                  SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       trail.region,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Color(0xFFC6DCCE), fontSize: 13),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 children: [
                   _Pill(text: trail.difficulty),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   _Pill(text: trail.duration),
                   const Spacer(),
-                  const Text(
+                  Text(
                     'See conditions',
                     style: TextStyle(
                       color: AppColors.moss,
@@ -294,7 +307,7 @@ class _HeroCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded,
+                  Icon(Icons.chevron_right_rounded,
                       size: 18, color: AppColors.moss),
                 ],
               ),
@@ -320,7 +333,7 @@ class _Pill extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.moss,
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -329,3 +342,16 @@ class _Pill extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

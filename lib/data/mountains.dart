@@ -1,13 +1,13 @@
-import 'mock_data.dart';
+﻿import 'mock_data.dart';
 
 /// Mindanao peaks, falls and trail destinations.
 ///
-/// Coordinates for major peaks are accurate. Smaller sites — the falls,
-/// ridges and local peaks — use approximate positions derived from their
+/// Coordinates for major peaks are accurate. Smaller sites â€” the falls,
+/// ridges and local peaks â€” use approximate positions derived from their
 /// barangay or municipality and should be verified against a survey
 /// source before any navigational use.
 const kMountains = <Trail>[
-  Trail(name: 'Mount Apo', region: 'Davao del Sur / Cotabato', latitude: 6.9875, longitude: 125.2731, difficulty: 'Advanced', duration: '2–3 days'),
+  Trail(name: 'Mount Apo', region: 'Davao del Sur / Cotabato', latitude: 6.9875, longitude: 125.2731, difficulty: 'Advanced', duration: '2â€“3 days'),
   Trail(name: 'Mount Agad-Agad', region: 'Iligan City, Lanao del Norte', latitude: 8.2100, longitude: 124.2600, difficulty: 'Beginner', duration: '2h'),
   Trail(name: 'Mount Bacayan', region: 'Sultan Kudarat', latitude: 6.4500, longitude: 124.4500, difficulty: 'Intermediate', duration: '5h'),
   Trail(name: 'Mount Balatukan', region: 'Misamis Oriental', latitude: 8.7833, longitude: 124.9500, difficulty: 'Intermediate', duration: '2 days'),
@@ -42,7 +42,7 @@ const kMountains = <Trail>[
   Trail(name: 'Mount Malindang', region: 'Misamis Occidental', latitude: 8.2167, longitude: 123.6333, difficulty: 'Advanced', duration: '3 days'),
   Trail(name: 'Mount Mambajao', region: 'Camiguin', latitude: 9.1833, longitude: 124.7167, difficulty: 'Beginner', duration: '2 days'),
   Trail(name: 'Mount Mas-ai', region: 'Surigao del Norte', latitude: 9.7500, longitude: 125.4800, difficulty: 'Intermediate', duration: '6h'),
-  Trail(name: 'Mount Matutum', region: 'Tupi, South Cotabato', latitude: 6.3625, longitude: 125.0722, difficulty: 'Intermediate', duration: '1–2 days'),
+  Trail(name: 'Mount Matutum', region: 'Tupi, South Cotabato', latitude: 6.3625, longitude: 125.0722, difficulty: 'Intermediate', duration: '1â€“2 days'),
   Trail(name: 'Mount Mayo', region: 'Davao Oriental', latitude: 7.1667, longitude: 126.3667, difficulty: 'Intermediate', duration: '2 days'),
   Trail(name: 'Mount Megatong', region: 'Santo Tomas, Davao del Norte', latitude: 7.5300, longitude: 125.6100, difficulty: 'Intermediate', duration: '1 day'),
   Trail(name: 'Mount Miariri', region: 'Arakan, North Cotabato', latitude: 7.3700, longitude: 125.0800, difficulty: 'Intermediate', duration: '6h'),
@@ -84,3 +84,12 @@ List<Trail> suggestedFor(int hikerRank) {
 /// How many destinations sit at each level.
 int countAtLevel(String difficulty) =>
     kMountains.where((m) => m.difficulty == difficulty).length;
+
+
+
+
+
+
+
+
+

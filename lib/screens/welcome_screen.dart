@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'login_screen.dart';
 import 'about_screen.dart';
@@ -24,20 +24,20 @@ class WelcomeScreen extends StatelessWidget {
                 child: Image.asset(
                   'assets/images/logo.png',
                   height: 130,
-                  semanticLabel: 'TrailGuard AI',
+                  semanticLabel: 'TrailGuard Mindanao',
                 ),
               ),
-              const SizedBox(height: 22),
+              SizedBox(height: 22),
 
               Text(
-                'TrailGuard AI',
+                'TrailGuard Mindanao',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: AppColors.pine,
-                      fontSize: 34,
+                      fontSize: 30,
                     ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
 
               Text(
                 'Explore with confidence.\nHike with intelligence.',
@@ -59,20 +59,20 @@ class WelcomeScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => AboutScreen()),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.forest,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.accentFill,
+                    foregroundColor: AppColors.onAccent,
                     elevation: 0,
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pill,
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Get started',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
 
               SizedBox(
                 width: double.infinity,
@@ -104,3 +104,14 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+

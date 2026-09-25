@@ -1,13 +1,16 @@
-import 'dart:async';
-import 'dart:math' as math;
+﻿import "dart:async";
 
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import '../data/mock_data.dart';
-import '../theme/app_theme.dart';
-import '../widgets/app_widgets.dart';
-import 'group_setup_screens.dart';
+import "package:flutter/material.dart";
+import "package:flutter_map/flutter_map.dart";
+import "package:latlong2/latlong.dart";
+import "../data/hike_records.dart";
+import "../data/mock_data.dart";
+import "../services/firebase_service.dart";
+import "../services/location_service.dart";
+import "../theme/app_theme.dart";
+import "../widgets/app_widgets.dart";
+import "group_chat_screen.dart";
+import "group_setup_screens.dart";
 
 const _distanceCalculator = Distance();
 
@@ -19,6 +22,35 @@ class GroupScreen extends StatefulWidget {
 }
 
 class _GroupScreenState extends State<GroupScreen> {
+  bool _restoring = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreGroup();
+  }
+
+  /// Puts the hiker back in whatever group they were in before the app
+  /// was closed.
+  Future<void> _restoreGroup() async {
+    if (GroupSession.isActive) {
+      setState(() => _restoring = false);
+      return;
+    }
+
+    final code = await FirebaseService.savedGroupCode();
+    if (!mounted) return;
+
+    if (code != null) {
+      final name = await FirebaseService.groupName(code);
+      if (!mounted) return;
+      if (name != null) {
+        GroupSession.setGroup(groupCode: code, groupName: name);
+      }
+    }
+    setState(() => _restoring = false);
+  }
+
   Future<void> _openSetup(Widget screen) async {
     final joined = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => screen),
@@ -26,17 +58,70 @@ class _GroupScreenState extends State<GroupScreen> {
     if (joined == true && mounted) setState(() {});
   }
 
+  /// Leaving is easy to hit by accident, so it always confirms first.
+  Future<void> _confirmLeave() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text("Leave this group?"),
+        content: Text(
+          "You will stop sharing your position with ${GroupSession.name}, "
+          "and you will not see where the others are. You can rejoin with "
+          "the code ${GroupSession.code}.",
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(foregroundColor: AppColors.inkSoft),
+            child: Text("Stay in group"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.alert),
+            child: const Text("Leave group"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final code = GroupSession.code;
+    if (code != null) await FirebaseService.leaveGroup(code);
+    GroupSession.clear();
+
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("You have left the group."),
+        backgroundColor: AppColors.pine,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_restoring) {
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.forest),
+      );
+    }
+
     if (!GroupSession.isActive) {
       return _GroupEntryView(
         onCreate: () => _openSetup(const CreateGroupScreen()),
         onJoin: () => _openSetup(const JoinGroupScreen()),
       );
     }
+
     return _GroupLiveView(
       key: ValueKey(GroupSession.code),
-      onLeave: () => setState(GroupSession.leave),
+      code: GroupSession.code!,
+      onLeave: _confirmLeave,
     );
   }
 }
@@ -58,10 +143,10 @@ class _GroupEntryView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Group hiking',
+            Text("Group hiking",
                 style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 6),
-            Text('Keep track of each other on the trail.',
+            SizedBox(height: 6),
+            Text("Keep track of each other on the trail.",
                 style: Theme.of(context).textTheme.bodySmall),
 
             const Spacer(flex: 2),
@@ -70,24 +155,24 @@ class _GroupEntryView extends StatelessWidget {
               child: Container(
                 width: 92,
                 height: 92,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.mist,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.groups_outlined,
+                child: Icon(Icons.groups_outlined,
                     size: 44, color: AppColors.forest),
               ),
             ),
             const SizedBox(height: 22),
             Text(
-              "You're not in a group",
+              "You are not in a group",
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              'Everyone in a group sees how far apart they are, so nobody '
-              'gets left behind.',
+              "Everyone in a group sees how far apart they are, so nobody "
+              "gets left behind.",
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
@@ -98,13 +183,13 @@ class _GroupEntryView extends StatelessWidget {
             const Spacer(flex: 3),
 
             PrimaryButton(
-              label: 'Create a group',
+              label: "Create a group",
               icon: Icons.add_rounded,
               onPressed: onCreate,
             ),
             const SizedBox(height: 12),
             SecondaryButton(
-              label: 'Join a group',
+              label: "Join a group",
               icon: Icons.login_rounded,
               onPressed: onJoin,
             ),
@@ -118,311 +203,388 @@ class _GroupEntryView extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _GroupLiveView extends StatefulWidget {
+  final String code;
   final VoidCallback onLeave;
-  const _GroupLiveView({super.key, required this.onLeave});
+  const _GroupLiveView({
+    super.key,
+    required this.code,
+    required this.onLeave,
+  });
 
   @override
   State<_GroupLiveView> createState() => _GroupLiveViewState();
 }
 
 class _GroupLiveViewState extends State<_GroupLiveView> {
-  Timer? _ticker;
-  final _random = math.Random();
+  final _mapController = MapController();
+  Timer? _pusher;
+  bool _followMe = true;
 
   @override
   void initState() {
     super.initState();
-    // Nudges other members so distances visibly update. Replace with a
-    // position stream from the backend when one exists.
-    _ticker = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      setState(() {
-        for (final m in GroupSession.members) {
-          if (m.isYou) continue;
-          m.latitude += (_random.nextDouble() - 0.5) * 0.0004;
-          m.longitude += (_random.nextDouble() - 0.5) * 0.0004;
-        }
-      });
-    });
+    _pushPosition();
+    // Every 8 seconds keeps the map current without burning quota.
+    _pusher = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => _pushPosition(),
+    );
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _pusher?.cancel();
     super.dispose();
   }
 
-  GroupMember? get _you {
-    for (final m in GroupSession.members) {
-      if (m.isYou) return m;
+  /// Shares where this hiker is so the rest of the group can see them.
+  Future<void> _pushPosition() async {
+    double? lat = ActiveHike.latitude;
+    double? lng = ActiveHike.longitude;
+
+    // Not hiking, so take a one-off reading instead.
+    if (lat == null || lng == null) {
+      final position = await LocationService.currentPosition();
+      lat = position?.latitude;
+      lng = position?.longitude;
     }
-    return null;
+
+    if (lat == null || lng == null || !mounted) return;
+
+    await FirebaseService.updateMyPosition(
+      code: widget.code,
+      latitude: lat,
+      longitude: lng,
+    );
+
+    if (_followMe && mounted) {
+      _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
+    }
   }
 
-  double _metersFromYou(GroupMember member) {
-    final you = _you;
-    if (you == null || member.isYou) return 0;
+  double? _metresFromYou(GroupMember you, GroupMember other) {
+    if (!you.hasPosition || !other.hasPosition) return null;
     return _distanceCalculator.as(
       LengthUnit.Meter,
-      LatLng(you.latitude, you.longitude),
-      LatLng(member.latitude, member.longitude),
+      LatLng(you.latitude!, you.longitude!),
+      LatLng(other.latitude!, other.longitude!),
     );
   }
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) return '${meters.round()} m';
-    return '${(meters / 1000).toStringAsFixed(1)} km';
+  String _formatDistance(double metres) {
+    if (metres < 1000) return "${metres.round()} m";
+    return "${(metres / 1000).toStringAsFixed(1)} km";
   }
 
-  Color _statusColor(double meters) {
-    if (meters < 50) return AppColors.forest;
-    if (meters < 500) return AppColors.blaze;
+  Color _statusColor(double? metres) {
+    if (metres == null) return AppColors.inkSoft;
+    if (metres < 50) return AppColors.forest;
+    if (metres < 500) return AppColors.blaze;
     return AppColors.alert;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final members = GroupSession.members;
-    final you = _you;
-
-    if (members.isEmpty || you == null) {
-      return _WaitingForHikers(onLeave: widget.onLeave);
-    }
-
-    final sorted = [...members]
-      ..sort((a, b) => _metersFromYou(a).compareTo(_metersFromYou(b)));
-    final furthest = _metersFromYou(sorted.last);
-
-    return SafeArea(
-      bottom: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(GroupSession.name,
-                          style: Theme.of(context).textTheme.headlineMedium),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Code ${GroupSession.code} · ${members.length} '
-                        '${members.length == 1 ? "hiker" : "hikers"}'
-                        '${members.length > 1 ? " · spread ${_formatDistance(furthest)}" : ""}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: widget.onLeave,
-                  icon: const Icon(Icons.logout_rounded,
-                      color: AppColors.inkSoft),
-                  tooltip: 'Leave group',
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SizedBox(
-              height: 186,
-              child: ClipRRect(
-                borderRadius: AppRadius.card,
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: LatLng(you.latitude, you.longitude),
-                    initialZoom: 15,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.trailguard_ai',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        for (final m in members)
-                          Marker(
-                            point: LatLng(m.latitude, m.longitude),
-                            width: 34,
-                            height: 34,
-                            child: _MemberPin(
-                              initial: m.name.isEmpty ? '?' : m.name[0],
-                              isYou: m.isYou,
-                              color: m.isYou
-                                  ? AppColors.pine
-                                  : _statusColor(_metersFromYou(m)),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                for (final m in sorted) ...[
-                  _MemberRow(
-                    member: m,
-                    label: m.isYou
-                        ? 'You'
-                        : _metersFromYou(m) < 50
-                            ? 'Together'
-                            : '${_formatDistance(_metersFromYou(m))} away',
-                    color: m.isYou
-                        ? AppColors.forest
-                        : _statusColor(_metersFromYou(m)),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            child: SecondaryButton(
-              label: 'Invite hiker',
-              icon: Icons.person_add_alt_outlined,
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Share code ${GroupSession.code}'),
-                    backgroundColor: AppColors.pine,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _WaitingForHikers extends StatelessWidget {
-  final VoidCallback onLeave;
-  const _WaitingForHikers({required this.onLeave});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(GroupSession.name,
-                style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Text('Code ${GroupSession.code}',
-                style: Theme.of(context).textTheme.bodySmall),
-
-            const Spacer(),
-
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: const BoxDecoration(
-                      color: AppColors.mist,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.person_search_outlined,
-                        size: 42, color: AppColors.forest),
-                  ),
-                  const SizedBox(height: 20),
-                  Text('Waiting for hikers to join',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Share the code and everyone\'s distance from you appears '
-                    'here as they join.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(height: 1.55),
-                  ),
-                ],
-              ),
-            ),
-
-            const Spacer(),
-
-            PrimaryButton(
-              label: 'Share code ${GroupSession.code}',
-              icon: Icons.ios_share_rounded,
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Invite code ${GroupSession.code} copied'),
-                    backgroundColor: AppColors.pine,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: 'Leave group',
-              icon: Icons.logout_rounded,
-              color: AppColors.alert,
-              onPressed: onLeave,
-            ),
-          ],
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GroupChatScreen(
+          code: widget.code,
+          groupName: GroupSession.name,
         ),
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: StreamBuilder<List<GroupMember>>(
+        stream: FirebaseService.memberStream(widget.code),
+        builder: (context, snapshot) {
+          final members = snapshot.data ?? const <GroupMember>[];
+          final loading =
+              snapshot.connectionState == ConnectionState.waiting;
+
+          GroupMember? you;
+          for (final m in members) {
+            if (m.isYou) you = m;
+          }
+
+          final sorted = [...members]..sort((a, b) {
+              if (a.isYou) return -1;
+              if (b.isYou) return 1;
+              final da = you == null ? null : _metresFromYou(you, a);
+              final db = you == null ? null : _metresFromYou(you, b);
+              if (da == null && db == null) return 0;
+              if (da == null) return 1;
+              if (db == null) return -1;
+              return da.compareTo(db);
+            });
+
+          final positioned = members.where((m) => m.hasPosition).toList();
+          final centre = you != null && you.hasPosition
+              ? LatLng(you.latitude!, you.longitude!)
+              : positioned.isEmpty
+                  ? null
+                  : LatLng(
+                      positioned.first.latitude!,
+                      positioned.first.longitude!,
+                    );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(GroupSession.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style:
+                                  Theme.of(context).textTheme.headlineMedium),
+                          SizedBox(height: 4),
+                          Text(
+                            "Code ${widget.code} - ${members.length} "
+                            "${members.length == 1 ? "hiker" : "hikers"}",
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _openChat,
+                      icon: Icon(Icons.forum_outlined,
+                          color: AppColors.forest),
+                      tooltip: "Group chat",
+                    ),
+                    IconButton(
+                      onPressed: widget.onLeave,
+                      icon: Icon(Icons.logout_rounded,
+                          color: AppColors.alert),
+                      tooltip: "Leave group",
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  height: 200,
+                  child: ClipRRect(
+                    borderRadius: AppRadius.card,
+                    child: centre == null
+                        ? Container(
+                            color: AppColors.fill,
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32),
+                                child: Text(
+                                  loading
+                                      ? "Loading group..."
+                                      : "No positions yet. Members appear "
+                                          "once their phones report a "
+                                          "location.",
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Stack(
+                            children: [
+                              FlutterMap(
+                                mapController: _mapController,
+                                options: MapOptions(
+                                  initialCenter: centre,
+                                  initialZoom: 15,
+                                  // Panning by hand turns off following,
+                                  // so the map does not fight the user.
+                                  onPointerDown: (_, _) {
+                                    if (_followMe) {
+                                      setState(() => _followMe = false);
+                                    }
+                                  },
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate:
+                                        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                                    userAgentPackageName:
+                                        "com.example.trailguard_ai",
+                                  ),
+                                  MarkerLayer(
+                                    markers: [
+                                      for (final m in positioned)
+                                        Marker(
+                                          point: LatLng(
+                                              m.latitude!, m.longitude!),
+                                          width: 38,
+                                          height: 38,
+                                          child: _MemberPin(member: m),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Positioned(
+                                right: 10,
+                                bottom: 10,
+                                child: Material(
+                                  color: _followMe
+                                      ? AppColors.forest
+                                      : AppColors.card,
+                                  shape: const CircleBorder(),
+                                  elevation: 2,
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: () {
+                                      setState(() => _followMe = true);
+                                      if (you != null && you.hasPosition) {
+                                        _mapController.move(
+                                          LatLng(
+                                              you.latitude!, you.longitude!),
+                                          16,
+                                        );
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(9),
+                                      child: Icon(
+                                        Icons.my_location_rounded,
+                                        size: 20,
+                                        color: _followMe
+                                            ? Colors.white
+                                            : AppColors.forest,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: sorted.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) {
+                    final m = sorted[i];
+                    final metres =
+                        you == null ? null : _metresFromYou(you, m);
+
+                    final label = m.isYou
+                        ? "You"
+                        : !m.hasPosition
+                            ? "No position"
+                            : metres == null
+                                ? "Unknown"
+                                : metres < 50
+                                    ? "Together"
+                                    : "${_formatDistance(metres)} away";
+
+                    return _MemberRow(
+                      member: m,
+                      label: label,
+                      color:
+                          m.isYou ? AppColors.forest : _statusColor(metres),
+                    );
+                  },
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: PrimaryButton(
+                        label: "Group chat",
+                        icon: Icons.forum_outlined,
+                        onPressed: _openChat,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    SizedBox(
+                      width: 54,
+                      height: 54,
+                      child: FilledButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Share code ${widget.code}"),
+                              backgroundColor: AppColors.pine,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.mist,
+                          foregroundColor: AppColors.pine,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.pill),
+                        ),
+                        child: const Icon(Icons.person_add_alt_outlined,
+                            size: 21),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
 
+/// Colour comes from the person's email, so the same hiker looks the same
+/// to everyone in the group.
 class _MemberPin extends StatelessWidget {
-  final String initial;
-  final bool isYou;
-  final Color color;
-
-  const _MemberPin({
-    required this.initial,
-    required this.isYou,
-    required this.color,
-  });
+  final GroupMember member;
+  const _MemberPin({required this.member});
 
   @override
   Widget build(BuildContext context) {
+    final colour = member.isYou
+        ? AppColors.pine
+        : avatarColorFor(member.email);
+
     return Container(
       decoration: BoxDecoration(
-        color: color,
+        color: colour,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2.5),
+        border: Border.all(
+          color: member.isStale && !member.isYou
+              ? AppColors.blaze
+              : Colors.white,
+          width: 3,
+        ),
       ),
       child: Center(
         child: Text(
-          isYou ? '●' : initial.toUpperCase(),
+          member.name.isEmpty ? "?" : member.name[0].toUpperCase(),
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -444,6 +606,10 @@ class _MemberRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colour = member.isYou
+        ? AppColors.pine
+        : avatarColorFor(member.email);
+
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       child: Row(
@@ -451,25 +617,35 @@ class _MemberRow extends StatelessWidget {
           Container(
             width: 38,
             height: 38,
-            decoration: BoxDecoration(
-              color: member.isYou ? AppColors.pine : AppColors.fill,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
             child: Center(
               child: Text(
-                member.name.isEmpty ? '?' : member.name[0].toUpperCase(),
-                style: TextStyle(
+                member.name.isEmpty ? "?" : member.name[0].toUpperCase(),
+                style: const TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: member.isYou ? AppColors.moss : AppColors.forest,
+                  color: Colors.white,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 13),
+          SizedBox(width: 13),
           Expanded(
-            child: Text(
-              member.isYou ? '${member.name} (You)' : member.name,
-              style: Theme.of(context).textTheme.titleMedium,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  member.isYou ? "${member.name} (You)" : member.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (!member.isYou && member.hasPosition && member.isStale)
+                  Text("Position may be out of date",
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.blaze)),
+              ],
             ),
           ),
           Container(
@@ -491,3 +667,14 @@ class _MemberRow extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+

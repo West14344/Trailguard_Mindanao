@@ -223,8 +223,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     children: [
                       TextButton.icon(
                         onPressed: _busy ? null : _back,
-                        icon: const Icon(Icons.arrow_back, size: 20),
-                        label: const Text("Back"),
+                        icon: Icon(Icons.arrow_back, size: 20),
+                        label: Text("Back"),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.forest,
                           textStyle: const TextStyle(
@@ -271,27 +271,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
             children: [
               _ProgressBar(step: stepNumber),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               Text(title, style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(subtitle,
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
                       ?.copyWith(height: 1.5)),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               ...fields,
               if (_error != null) ...[
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline,
+                    Icon(Icons.error_outline,
                         size: 16, color: AppColors.alert),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(_error!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AppColors.alert, fontSize: 13)),
                     ),
                   ],
@@ -359,7 +359,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           maxLines: 3,
           onChanged: (_) => setState(() => _error = null),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         SecondaryButton(
           label: "Paste from clipboard",
           icon: Icons.content_paste_rounded,
@@ -402,7 +402,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             onTap: () => setState(() => _showNew = !_showNew),
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
@@ -438,7 +438,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         LabeledField(
           label: "Confirm password",
           hint: "Type the same password again",
@@ -450,15 +450,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             onTap: () => setState(() => _showConfirm = !_showConfirm),
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         if (showMismatch)
-          const _StatusLine(
+          _StatusLine(
             icon: Icons.error_outline,
             color: AppColors.alert,
             text: "Passwords do not match.",
           )
         else if (_passwordsMatch)
-          const _StatusLine(
+          _StatusLine(
             icon: Icons.check_circle_rounded,
             color: AppColors.forest,
             text: "Passwords match.",
@@ -478,11 +478,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           Container(
             width: 92,
             height: 92,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.mist,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_rounded,
+            child: Icon(Icons.check_rounded,
                 size: 46, color: AppColors.forest),
           ),
           const SizedBox(height: 22),
@@ -521,7 +521,7 @@ class _RuleRow extends StatelessWidget {
             size: 17,
             color: met ? AppColors.forest : AppColors.inkSoft,
           ),
-          const SizedBox(width: 9),
+          SizedBox(width: 9),
           Expanded(
             child: Text(
               text,
@@ -571,7 +571,7 @@ class _ProgressBar extends StatelessWidget {
     return Row(
       children: [
         Text("STEP $step OF 3", style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Row(
             children: List.generate(3, (i) {
@@ -592,3 +592,14 @@ class _ProgressBar extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
@@ -21,8 +21,8 @@ class AchievementsScreen extends StatelessWidget {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
@@ -64,7 +64,7 @@ class AchievementsScreen extends StatelessWidget {
                     itemBuilder: (context, i) => _BadgeTile(badge: badges[i]),
                   ),
 
-                  const SizedBox(height: 30),
+                  SizedBox(height: 30),
                   Row(
                     children: [
                       Expanded(child: SectionLabel('Mountains climbed')),
@@ -72,14 +72,14 @@ class AchievementsScreen extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   if (records.isEmpty)
                     AppCard(
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          const Icon(Icons.hiking_rounded,
+                          Icon(Icons.hiking_rounded,
                               size: 38, color: AppColors.inkSoft),
                           const SizedBox(height: 12),
                           Text('No hikes yet',
@@ -205,7 +205,7 @@ class _RecordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          Text('${record.region} · $_date',
+          Text('${record.region} Â· $_date',
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 14),
           Row(
@@ -237,9 +237,9 @@ class _Metric extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 16, color: AppColors.forest),
-        const SizedBox(width: 6),
+        SizedBox(width: 6),
         Text(value,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.ink)),
@@ -247,3 +247,13 @@ class _Metric extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

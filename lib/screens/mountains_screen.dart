@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
 import '../data/mountains.dart';
 import '../theme/app_theme.dart';
@@ -67,8 +67,8 @@ class _MountainsScreenState extends State<MountainsScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
@@ -88,29 +88,29 @@ class _MountainsScreenState extends State<MountainsScreen> {
                 children: [
                   Text('All mountains',
                       style: Theme.of(context).textTheme.headlineMedium),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     _filter == 'For you'
                         ? '${results.length} suited to a ${HikerProfile.levelName.toLowerCase()} hiker'
                         : '${results.length} of ${kMountains.length} destinations',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
 
                   TextField(
                     controller: _search,
                     onChanged: (v) => setState(() => _query = v),
-                    style: const TextStyle(fontSize: 15, color: AppColors.ink),
+                    style: TextStyle(fontSize: 15, color: AppColors.ink),
                     decoration: InputDecoration(
                       hintText: 'Search by name or province',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                           color: AppColors.inkSoft, fontSize: 15),
-                      prefixIcon: const Icon(Icons.search_rounded,
+                      prefixIcon: Icon(Icons.search_rounded,
                           size: 21, color: AppColors.inkSoft),
                       suffixIcon: _query.isEmpty
                           ? null
                           : IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 19),
+                              icon: Icon(Icons.close_rounded, size: 19),
                               color: AppColors.inkSoft,
                               onPressed: () {
                                 _search.clear();
@@ -120,11 +120,11 @@ class _MountainsScreenState extends State<MountainsScreen> {
                       filled: true,
                       fillColor: AppColors.card,
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                      enabledBorder: const OutlineInputBorder(
+                      enabledBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pill,
                         borderSide: BorderSide(color: AppColors.line),
                       ),
-                      focusedBorder: const OutlineInputBorder(
+                      focusedBorder: OutlineInputBorder(
                         borderRadius: AppRadius.pill,
                         borderSide:
                             BorderSide(color: AppColors.forest, width: 1.6),
@@ -143,7 +143,7 @@ class _MountainsScreenState extends State<MountainsScreen> {
                             selected: _filter == f,
                             onTap: () => setState(() => _filter = f),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                         ],
                       ],
                     ),
@@ -151,7 +151,7 @@ class _MountainsScreenState extends State<MountainsScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
 
             Expanded(
               child: results.isEmpty
@@ -161,7 +161,7 @@ class _MountainsScreenState extends State<MountainsScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.search_off_rounded,
+                            Icon(Icons.search_off_rounded,
                                 size: 42, color: AppColors.inkSoft),
                             const SizedBox(height: 12),
                             Text('No mountains match that search',
@@ -249,7 +249,7 @@ class MountainRow extends StatelessWidget {
               color: AppColors.mist,
               borderRadius: AppRadius.field,
             ),
-            child: const Icon(Icons.terrain_rounded,
+            child: Icon(Icons.terrain_rounded,
                 size: 22, color: AppColors.forest),
           ),
           const SizedBox(width: 13),
@@ -261,7 +261,7 @@ class MountainRow extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 3),
                 Text(
-                  '${mountain.region} · ${mountain.duration}',
+                  '${mountain.region} Â· ${mountain.duration}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
@@ -290,3 +290,13 @@ class MountainRow extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

@@ -1,11 +1,11 @@
-import 'dart:io';
+﻿import "dart:io";
 
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import '../data/mock_data.dart';
-import '../services/firebase_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/app_widgets.dart';
+import "package:flutter/material.dart";
+import "package:image_picker/image_picker.dart";
+import "../data/mock_data.dart";
+import "../services/firebase_service.dart";
+import "../theme/app_theme.dart";
+import "../widgets/app_widgets.dart";
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -18,23 +18,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final _name = TextEditingController(text: HikerProfile.fullName);
   late final _contactName =
       TextEditingController(text: HikerProfile.emergencyContact);
+  late final _contactEmail =
+      TextEditingController(text: HikerProfile.emergencyEmail);
   late final _contactNumber =
       TextEditingController(text: HikerProfile.emergencyNumber);
 
   String? _photoPath = HikerProfile.photoPath;
   late String _level = HikerProfile.experienceLevel;
   bool _saving = false;
+  String? _error;
 
   static const _levels = [
-    'Beginner Hiker',
-    'Intermediate Hiker',
-    'Advanced Hiker',
+    "Beginner Hiker",
+    "Intermediate Hiker",
+    "Advanced Hiker",
   ];
+
+  /// Gmail specifically, since that is where an emergency alert goes.
+  bool get _contactEmailValid {
+    final e = _contactEmail.text.trim().toLowerCase();
+    if (e.isEmpty) return true; // empty is allowed, invalid is not
+    return RegExp(r"^[\w.+-]+@gmail\.com$").hasMatch(e);
+  }
+
+  bool get _canSave => !_saving && _contactEmailValid;
 
   @override
   void dispose() {
     _name.dispose();
     _contactName.dispose();
+    _contactEmail.dispose();
     _contactNumber.dispose();
     super.dispose();
   }
@@ -61,18 +74,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined,
+              leading: Icon(Icons.photo_library_outlined,
                   color: AppColors.forest),
-              title: const Text('Choose from gallery'),
+              title: const Text("Choose from gallery"),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _pickPhoto(ImageSource.gallery);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined,
+              leading: Icon(Icons.photo_camera_outlined,
                   color: AppColors.forest),
-              title: const Text('Take a photo'),
+              title: const Text("Take a photo"),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _pickPhoto(ImageSource.camera);
@@ -80,9 +93,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             if (_photoPath != null)
               ListTile(
-                leading:
-                    const Icon(Icons.delete_outline, color: AppColors.alert),
-                title: const Text('Remove photo',
+                leading: Icon(Icons.delete_outline, color: AppColors.alert),
+                title: Text("Remove photo",
                     style: TextStyle(color: AppColors.alert)),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -97,33 +109,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
+    if (!_contactEmailValid) {
+      setState(() =>
+          _error = "The emergency contact must use a Gmail address.");
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
 
     HikerProfile.fullName = _name.text.trim();
     HikerProfile.emergencyContact = _contactName.text.trim();
+    HikerProfile.emergencyEmail = _contactEmail.text.trim().toLowerCase();
     HikerProfile.emergencyNumber = _contactNumber.text.trim();
     HikerProfile.experienceLevel = _level;
     HikerProfile.photoPath = _photoPath;
 
     try {
       await FirebaseService.saveProfile();
+      await FirebaseService.syncNameToGroup();
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save changes. Check your connection.'),
-          backgroundColor: AppColors.alert,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() {
+        _saving = false;
+        _error = "Could not save changes. Check your connection.";
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final emailTyped = _contactEmail.text.trim().isNotEmpty;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -133,15 +154,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Row(
                 children: [
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed:
+                        _saving ? null : () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    label: const Text("Back"),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                          fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -152,7 +172,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
                 children: [
-                  Text('Edit profile',
+                  Text("Edit profile",
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 26),
 
@@ -174,8 +194,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 border: Border.all(
                                     color: AppColors.paper, width: 3),
                               ),
-                              child: const Icon(Icons.photo_camera_rounded,
-                                  size: 17, color: Colors.white),
+                              child: Icon(Icons.photo_camera_rounded,
+                                  size: 17, color: AppColors.onAccent),
                             ),
                           ),
                         ],
@@ -188,22 +208,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       onPressed: _choosePhotoSource,
                       style: TextButton.styleFrom(
                           foregroundColor: AppColors.forest),
-                      child: const Text('Change photo'),
+                      child: const Text("Change photo"),
                     ),
                   ),
 
                   const SizedBox(height: 20),
                   LabeledField(
-                    label: 'Full name',
-                    hint: 'Nukie Blaze',
+                    label: "Full name",
+                    hint: "Nukie Blaze",
                     controller: _name,
                     keyboardType: TextInputType.name,
+                    onChanged: (_) => setState(() => _error = null),
                   ),
                   const SizedBox(height: 18),
 
                   // Email is the login identity, so it is shown rather than
-                  // editable here. Changing it needs re-authentication.
-                  Text('Email',
+                  // editable. Changing it needs re-authentication.
+                  Text("Email",
                       style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 7),
                   Container(
@@ -216,13 +237,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     child: Text(
                       HikerProfile.email,
-                      style: const TextStyle(
-                          fontSize: 15, color: AppColors.inkSoft),
+                      style:
+                          TextStyle(fontSize: 15, color: AppColors.inkSoft),
                     ),
                   ),
 
                   const SizedBox(height: 26),
-                  const SectionLabel('Experience level'),
+                  const SectionLabel("Experience level"),
                   const SizedBox(height: 12),
                   for (final level in _levels) ...[
                     _LevelPick(
@@ -233,22 +254,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(height: 10),
                   ],
 
-                  const SizedBox(height: 20),
-                  const SectionLabel('Emergency contact'),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 22),
+                  const SectionLabel("Emergency contact"),
+                  const SizedBox(height: 6),
+                  Text(
+                    "This person is alerted with your location when you hold "
+                    "SOS on the trail.",
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(height: 1.45),
+                  ),
+                  const SizedBox(height: 16),
+
                   LabeledField(
-                    label: 'Name of contact person',
-                    hint: 'Benhard Awanon',
+                    label: "Name of contact person",
+                    hint: "Benhard Awanon",
                     controller: _contactName,
                     keyboardType: TextInputType.name,
+                    onChanged: (_) => setState(() => _error = null),
                   ),
                   const SizedBox(height: 18),
+
                   LabeledField(
-                    label: 'Number of contact person',
-                    hint: '+63 912 345 6789',
+                    label: "Gmail of contact person",
+                    hint: "contact@gmail.com",
+                    controller: _contactEmail,
+                    keyboardType: TextInputType.emailAddress,
+                    onChanged: (_) => setState(() => _error = null),
+                  ),
+                  if (emailTyped && !_contactEmailValid) ...[
+                    const SizedBox(height: 8),
+                    _StatusLine(
+                      icon: Icons.error_outline,
+                      color: AppColors.blaze,
+                      text: "Must be a Gmail address ending in @gmail.com",
+                    ),
+                  ] else if (emailTyped) ...[
+                    const SizedBox(height: 8),
+                    _StatusLine(
+                      icon: Icons.check_circle_rounded,
+                      color: AppColors.forest,
+                      text: "Valid Gmail address",
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+
+                  LabeledField(
+                    label: "Number of contact person",
+                    hint: "+63 912 345 6789",
                     controller: _contactNumber,
                     keyboardType: TextInputType.phone,
+                    onChanged: (_) => setState(() => _error = null),
                   ),
+
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 16, color: AppColors.alert),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_error!,
+                              style: TextStyle(
+                                  color: AppColors.alert, fontSize: 13)),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -256,8 +331,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: PrimaryButton(
-                label: _saving ? 'Saving…' : 'Save changes',
-                onPressed: _saving ? null : _save,
+                label: _saving ? "Saving..." : "Save changes",
+                onPressed: _canSave ? _save : null,
               ),
             ),
           ],
@@ -316,6 +391,32 @@ class _LevelPick extends StatelessWidget {
   }
 }
 
+class _StatusLine extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+  const _StatusLine({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(
+                  fontSize: 13, color: color, fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
 /// Photo if one is set, initials otherwise. Shared with the profile screen.
 class ProfileAvatar extends StatelessWidget {
   final String? photoPath;
@@ -342,7 +443,7 @@ class ProfileAvatar extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.pine,
         shape: BoxShape.circle,
       ),
@@ -358,3 +459,4 @@ class ProfileAvatar extends StatelessWidget {
     );
   }
 }
+

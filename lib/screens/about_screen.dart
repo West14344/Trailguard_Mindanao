@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'create_account_screen.dart';
@@ -20,8 +20,8 @@ class AboutScreen extends StatelessWidget {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
@@ -39,7 +39,7 @@ class AboutScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 children: [
                   Text('How it works', style: text.headlineMedium),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
 
                   // The thesis. Everything else on this page supports it.
                   Text(
@@ -50,32 +50,32 @@ class AboutScreen extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(
-                    'TrailGuard answers "is it safe for me to hike there today?"',
+                    'TrailGuard Mindanao answers "is it safe for me to hike there today?"',
                     style: text.headlineMedium?.copyWith(height: 1.3),
                   ),
 
-                  const SizedBox(height: 30),
+                  SizedBox(height: 30),
 
                   // Show the score rather than describe it.
                   const SectionLabel('Every trail gets a score'),
-                  const SizedBox(height: 14),
-                  const _ScoreSample(
+                  SizedBox(height: 14),
+                  _ScoreSample(
                     score: 92,
                     color: AppColors.forest,
                     verdict: 'Safe to go',
                     detail: 'Clear weather, dry trail',
                   ),
-                  const SizedBox(height: 8),
-                  const _ScoreSample(
+                  SizedBox(height: 8),
+                  _ScoreSample(
                     score: 68,
                     color: AppColors.blaze,
                     verdict: 'Be careful',
                     detail: 'Rain expected this afternoon',
                   ),
-                  const SizedBox(height: 8),
-                  const _ScoreSample(
+                  SizedBox(height: 8),
+                  _ScoreSample(
                     score: 35,
                     color: AppColors.alert,
                     verdict: "Don't go today",
@@ -110,7 +110,7 @@ class AboutScreen extends StatelessWidget {
                     icon: Icons.route_outlined,
                     title: 'Recommends trails that fit you',
                     body: 'Matched to your experience, fitness, and today\'s '
-                        'conditions — not a generic difficulty rating.',
+                        'conditions â€” not a generic difficulty rating.',
                   ),
                   const _Feature(
                     icon: Icons.cloud_download_outlined,
@@ -133,14 +133,14 @@ class AboutScreen extends StatelessWidget {
                   const _Feature(
                     icon: Icons.groups_outlined,
                     title: 'Hikers report what they see',
-                    body: 'Fallen trees, flooding, blocked paths — reported by '
+                    body: 'Fallen trees, flooding, blocked paths â€” reported by '
                         'people who were just there.',
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   const SectionLabel('Who it is for'),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -154,7 +154,7 @@ class AboutScreen extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 34),
+                  SizedBox(height: 34),
 
                   Container(
                     padding: const EdgeInsets.all(20),
@@ -165,7 +165,7 @@ class AboutScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.shield_outlined,
+                        Icon(Icons.shield_outlined,
                             color: AppColors.moss, size: 26),
                         const SizedBox(height: 12),
                         Text(
@@ -335,7 +335,7 @@ class _Tag extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.pine,
           fontSize: 13,
           fontWeight: FontWeight.w600,
@@ -344,3 +344,13 @@ class _Tag extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

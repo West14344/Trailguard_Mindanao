@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'main_shell.dart';
@@ -11,7 +11,7 @@ class PermissionsScreen extends StatefulWidget {
 }
 
 class _PermissionsScreenState extends State<PermissionsScreen> {
-  // Cosmetic only for now — no permission_handler calls yet.
+  // Cosmetic only for now â€” no permission_handler calls yet.
   final _granted = <bool>[true, true, false];
 
   static const _items = [
@@ -38,8 +38,8 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                 children: [
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back, size: 20),
-                    label: const Text('Back'),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.forest,
                       textStyle: const TextStyle(
@@ -105,7 +105,7 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                                   style:
                                       Theme.of(context).textTheme.titleMedium,
                                 ),
-                                const SizedBox(height: 3),
+                                SizedBox(height: 3),
                                 Text(
                                   _items[i][1],
                                   style: Theme.of(context).textTheme.bodySmall,
@@ -122,19 +122,19 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                   ],
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   // Honest about what happens if location stays off, rather
                   // than blocking the user or nagging.
                   if (!_granted[0])
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.info_outline,
+                        Icon(Icons.info_outline,
                             size: 16, color: AppColors.blaze),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Without location, trails cannot be scored for '
@@ -180,7 +180,7 @@ class _StepBar extends StatelessWidget {
     return Row(
       children: [
         Text('STEP $step OF 3', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: Row(
             children: List.generate(3, (i) {
@@ -201,3 +201,13 @@ class _StepBar extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

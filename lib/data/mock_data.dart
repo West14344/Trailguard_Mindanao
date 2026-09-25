@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+﻿import "package:flutter/material.dart";
+import "../theme/app_theme.dart";
 
 /// Shared score thresholds so the ring, chips and pins never disagree.
 Color scoreColorFor(int score) {
@@ -9,9 +9,9 @@ Color scoreColorFor(int score) {
 }
 
 String verdictFor(int score) {
-  if (score >= 80) return 'Safe to hike today';
-  if (score >= 50) return 'Hike with caution today';
-  return 'Not recommended today';
+  if (score >= 80) return "Safe to hike today";
+  if (score >= 50) return "Hike with caution today";
+  return "Not recommended today";
 }
 
 class Trail {
@@ -31,12 +31,12 @@ class Trail {
     required this.region,
     required this.latitude,
     required this.longitude,
-    this.difficulty = 'Intermediate',
-    this.duration = '—',
+    this.difficulty = "Intermediate",
+    this.duration = "-",
     this.safetyScore = 75,
-    this.weather = 'Partly cloudy, 24°C',
-    this.rainfallRisk = 'Low',
-    this.terrain = 'Moderate',
+    this.weather = "Partly cloudy, 24C",
+    this.rainfallRisk = "Low",
+    this.terrain = "Moderate",
   });
 
   Color get scoreColor => scoreColorFor(safetyScore);
@@ -44,8 +44,8 @@ class Trail {
 
   /// 0 Beginner, 1 Intermediate, 2 Advanced.
   int get levelRank => switch (difficulty) {
-        'Beginner' => 0,
-        'Advanced' => 2,
+        "Beginner" => 0,
+        "Advanced" => 2,
         _ => 1,
       };
 
@@ -89,33 +89,31 @@ class TrailAlert {
       level == AlertLevel.notice ? AppColors.ink : Colors.white;
 }
 
-/// Populated by the hazard-report and weather services once connected.
-const kAlerts = <TrailAlert>[];
-
 /// The signed-in hiker. Filled from Firestore at login, cleared at logout.
 class HikerProfile {
-  static String fullName = '';
-  static String email = '';
-  static String emergencyContact = '';
-  static String emergencyNumber = '';
-  static String experienceLevel = 'Intermediate Hiker';
+  static String fullName = "";
+  static String email = "";
+  static String emergencyContact = "";
+  static String emergencyNumber = "";
+  static String emergencyEmail = "";
+  static String experienceLevel = "Intermediate Hiker";
 
   /// Local file path of the chosen photo. Null means fall back to initials.
   static String? photoPath;
 
-  /// "Intermediate Hiker" → "Intermediate"
+  /// "Intermediate Hiker" becomes "Intermediate"
   static String get levelName =>
-      experienceLevel.replaceAll(' Hiker', '').trim();
+      experienceLevel.replaceAll(" Hiker", "").trim();
 
   static int get levelRank => switch (levelName) {
-        'Beginner' => 0,
-        'Advanced' => 2,
+        "Beginner" => 0,
+        "Advanced" => 2,
         _ => 1,
       };
 
   static String get initials {
-    final parts = fullName.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    final parts = fullName.trim().split(RegExp(r"\s+"));
+    if (parts.isEmpty || parts.first.isEmpty) return "?";
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
     return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
@@ -123,11 +121,12 @@ class HikerProfile {
 
   /// Wipes the signed-in hiker so the next person does not inherit it.
   static void signOut() {
-    fullName = '';
-    email = '';
-    emergencyContact = '';
-    emergencyNumber = '';
-    experienceLevel = 'Intermediate Hiker';
+    fullName = "";
+    email = "";
+    emergencyContact = "";
+    emergencyNumber = "";
+    emergencyEmail = "";
+    experienceLevel = "Intermediate Hiker";
     photoPath = null;
   }
 }
@@ -136,103 +135,197 @@ class HikerProfile {
 // Groups
 // ---------------------------------------------------------------------------
 
-/// A hiker in a group. Positions are held here so distance between members
-/// is computed rather than stored, staying correct as people move.
+/// A hiker in a group, as stored in Firestore. Coordinates are null until
+/// that person starts a hike and their phone reports a position.
 class GroupMember {
   final String name;
   final String email;
-  double latitude;
-  double longitude;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? lastUpdated;
 
-  GroupMember({
+  const GroupMember({
     required this.name,
     required this.email,
-    required this.latitude,
-    required this.longitude,
+    this.latitude,
+    this.longitude,
+    this.lastUpdated,
   });
 
   bool get isYou => email.toLowerCase() == HikerProfile.email.toLowerCase();
-}
 
-class TrailGroup {
-  final String name;
-  final String code;
-  final List<GroupMember> members;
+  bool get hasPosition => latitude != null && longitude != null;
 
-  TrailGroup({
-    required this.name,
-    required this.code,
-    required this.members,
-  });
-}
-
-/// Local group registry. Codes validate against groups created on this
-/// device. Moves to Firestore next for cross-device sync.
-class GroupRegistry {
-  static final Map<String, TrailGroup> _groups = {};
-
-  static const _anchorLat = 6.9875;
-  static const _anchorLng = 125.2731;
-
-  static bool exists(String code) => _groups.containsKey(code.toUpperCase());
-
-  static TrailGroup? find(String code) => _groups[code.toUpperCase()];
-
-  static TrailGroup create({required String name, required String code}) {
-    final group = TrailGroup(
-      name: name,
-      code: code.toUpperCase(),
-      members: [_memberForCurrentHiker(0)],
-    );
-    _groups[group.code] = group;
-    return group;
-  }
-
-  static TrailGroup? join(String code) {
-    final group = _groups[code.toUpperCase()];
-    if (group == null) return null;
-
-    final already = group.members.any(
-        (m) => m.email.toLowerCase() == HikerProfile.email.toLowerCase());
-
-    if (!already) {
-      group.members.add(_memberForCurrentHiker(group.members.length));
-    }
-    return group;
-  }
-
-  static GroupMember _memberForCurrentHiker(int index) {
-    return GroupMember(
-      name: HikerProfile.fullName.isEmpty ? 'Hiker' : HikerProfile.fullName,
-      email: HikerProfile.email,
-      latitude: _anchorLat + (index * 0.0012),
-      longitude: _anchorLng + (index * 0.0009),
-    );
-  }
-
-  static void leave(String code) {
-    final group = _groups[code.toUpperCase()];
-    group?.members.removeWhere(
-        (m) => m.email.toLowerCase() == HikerProfile.email.toLowerCase());
-    if (group != null && group.members.isEmpty) {
-      _groups.remove(group.code);
-    }
+  /// A position older than ten minutes is stale enough to flag.
+  bool get isStale {
+    final t = lastUpdated;
+    if (t == null) return true;
+    return DateTime.now().difference(t).inMinutes > 10;
   }
 }
 
+/// Tracks which group the hiker is currently in. The members themselves
+/// come from Firestore, so this only holds the code and name.
 class GroupSession {
-  static TrailGroup? current;
+  static String? code;
+  static String name = "";
 
-  static bool get isActive => current != null;
-  static String get name => current?.name ?? '';
-  static String get code => current?.code ?? '';
-  static List<GroupMember> get members => current?.members ?? const [];
+  static bool get isActive => code != null;
 
-  static void setGroup(TrailGroup group) => current = group;
+  static void setGroup({
+    required String groupCode,
+    required String groupName,
+  }) {
+    code = groupCode.toUpperCase();
+    name = groupName;
+  }
 
-  static void leave() {
-    final group = current;
-    if (group != null) GroupRegistry.leave(group.code);
-    current = null;
+  static void clear() {
+    code = null;
+    name = "";
   }
 }
+
+/// A hazard report as stored in Firestore, for plotting on the map.
+class HazardReport {
+  final String id;
+  final String type;
+  final String description;
+  final String nearestTrail;
+  final double? latitude;
+  final double? longitude;
+  final String reportedByName;
+  final DateTime? reportedAt;
+
+  const HazardReport({
+    required this.id,
+    required this.type,
+    required this.description,
+    required this.nearestTrail,
+    required this.reportedByName,
+    this.latitude,
+    this.longitude,
+    this.reportedAt,
+  });
+
+  bool get hasPosition => latitude != null && longitude != null;
+
+  /// Wildfire and landslide can kill; a missing sign is an inconvenience.
+  AlertLevel get level {
+    switch (type) {
+      case "Wildfire":
+      case "Landslide":
+      case "Flooded trail":
+        return AlertLevel.critical;
+      case "Damaged bridge":
+      case "Blocked path":
+      case "Wildlife":
+        return AlertLevel.caution;
+      default:
+        return AlertLevel.notice;
+    }
+  }
+
+  Color get markerColor {
+    switch (level) {
+      case AlertLevel.critical:
+        return AppColors.alert;
+      case AlertLevel.caution:
+        return AppColors.blaze;
+      case AlertLevel.notice:
+        return AppColors.inkSoft;
+    }
+  }
+
+  IconData get icon {
+    switch (type) {
+      case "Fallen tree":
+        return Icons.park_outlined;
+      case "Flooded trail":
+        return Icons.water_outlined;
+      case "Wildfire":
+        return Icons.local_fire_department_outlined;
+      case "Landslide":
+        return Icons.landslide_outlined;
+      case "Blocked path":
+        return Icons.block_outlined;
+      case "Damaged bridge":
+        return Icons.dangerous_outlined;
+      case "Wildlife":
+        return Icons.pets_outlined;
+      case "Missing trail sign":
+        return Icons.signpost_outlined;
+      default:
+        return Icons.warning_amber_rounded;
+    }
+  }
+
+  String get ago {
+    final t = reportedAt;
+    if (t == null) return "just now";
+    final diff = DateTime.now().difference(t);
+    if (diff.inMinutes < 1) return "just now";
+    if (diff.inMinutes < 60) return "${diff.inMinutes} min ago";
+    if (diff.inHours < 24) {
+      return "${diff.inHours} ${diff.inHours == 1 ? "hour" : "hours"} ago";
+    }
+    return "${diff.inDays} ${diff.inDays == 1 ? "day" : "days"} ago";
+  }
+}
+
+/// One chat message in a group.
+class GroupMessage {
+  final String id;
+  final String text;
+  final String senderId;
+  final String senderName;
+  final DateTime? sentAt;
+
+  const GroupMessage({
+    required this.id,
+    required this.text,
+    required this.senderId,
+    required this.senderName,
+    this.sentAt,
+  });
+
+  /// h:mm, since group chat is short-lived and the date rarely matters.
+  String get timeLabel {
+    final t = sentAt;
+    if (t == null) return "";
+    final hour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final minute = t.minute.toString().padLeft(2, "0");
+    return "$hour:$minute ${t.hour < 12 ? "AM" : "PM"}";
+  }
+}
+
+/// Stable colour per person, derived from their email, so the same hiker
+/// looks the same to everyone in the group.
+Color avatarColorFor(String seed) {
+  const palette = [
+    Color(0xFF1B7A4B),
+    Color(0xFF2E6F9E),
+    Color(0xFF8A4FBF),
+    Color(0xFFC2632B),
+    Color(0xFF0B7C7C),
+    Color(0xFFA83E5B),
+  ];
+  if (seed.isEmpty) return palette.first;
+  var hash = 0;
+  for (final unit in seed.codeUnits) {
+    hash = (hash + unit) % palette.length;
+  }
+  return palette[hash];
+}
+
+
+
+
+
+
+
+
+
+
+
+

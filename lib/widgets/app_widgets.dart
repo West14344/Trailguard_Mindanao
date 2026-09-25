@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -23,12 +23,15 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.forest,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.accentFill,
+          foregroundColor: AppColors.onAccent,
           disabledBackgroundColor: AppColors.fill,
           disabledForegroundColor: AppColors.inkSoft,
           elevation: 0,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.pill),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.pill,
+            side: BorderSide(color: AppColors.accentBorder),
+          ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         child: Row(
@@ -72,7 +75,10 @@ class SecondaryButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: tint,
           side: BorderSide(color: tint, width: 1.4),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.pill),
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.pill,
+            side: BorderSide(color: AppColors.accentBorder),
+          ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         child: Row(
@@ -175,7 +181,7 @@ class ScoreRing extends StatelessWidget {
                   color: AppColors.ink,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
                 'SAFETY SCORE',
                 style: TextStyle(
@@ -282,27 +288,27 @@ class LabeledField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 7),
+        SizedBox(height: 7),
         TextField(
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
           maxLines: obscure ? 1 : maxLines,
           onChanged: onChanged,
-          style: const TextStyle(fontSize: 15, color: AppColors.ink),
+          style: TextStyle(fontSize: 15, color: AppColors.ink),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.inkSoft, fontSize: 15),
+            hintStyle: TextStyle(color: AppColors.inkSoft, fontSize: 15),
             suffixIcon: suffix,
             filled: true,
             fillColor: AppColors.card,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            enabledBorder: const OutlineInputBorder(
+            enabledBorder: OutlineInputBorder(
               borderRadius: AppRadius.field,
               borderSide: BorderSide(color: AppColors.line),
             ),
-            focusedBorder: const OutlineInputBorder(
+            focusedBorder: OutlineInputBorder(
               borderRadius: AppRadius.field,
               borderSide: BorderSide(color: AppColors.forest, width: 1.6),
             ),
@@ -332,7 +338,7 @@ class MapPlaceholder extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.map_outlined, size: 56, color: AppColors.forest),
+          Icon(Icons.map_outlined, size: 56, color: AppColors.forest),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -359,7 +365,7 @@ class BackHeader extends StatelessWidget {
       children: [
         IconButton(
           onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+          icon: Icon(Icons.arrow_back, color: AppColors.ink),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           tooltip: 'Go back',
@@ -372,3 +378,13 @@ class BackHeader extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

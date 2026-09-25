@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'alerts_screen.dart';
 import 'dashboard_screen.dart';
@@ -42,7 +42,7 @@ class _MainShellState extends State<MainShell> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.card,
           border: Border(top: BorderSide(color: AppColors.line)),
         ),
@@ -91,3 +91,13 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+

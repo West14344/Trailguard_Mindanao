@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -83,18 +83,18 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: const Text('Finish this hike?'),
+        title: Text('Finish this hike?'),
         content: Text(
           'You have covered ${ActiveHike.distanceKm.toStringAsFixed(2)} km '
           'in ${formatDuration(ActiveHike.elapsed)}. This will be saved to '
           'your achievements.',
-          style: const TextStyle(height: 1.5),
+          style: TextStyle(height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             style: TextButton.styleFrom(foregroundColor: AppColors.inkSoft),
-            child: const Text('Keep hiking'),
+            child: Text('Keep hiking'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -133,11 +133,11 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
               Container(
                 width: 74,
                 height: 74,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.mist,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_rounded,
+                child: Icon(Icons.check_rounded,
                     size: 38, color: AppColors.forest),
               ),
               const SizedBox(height: 18),
@@ -193,7 +193,7 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
           children: [
             Row(
               children: [
-                const Icon(Icons.terrain_rounded,
+                Icon(Icons.terrain_rounded,
                     size: 18, color: AppColors.forest),
                 const SizedBox(width: 7),
                 Expanded(
@@ -215,7 +215,7 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
             Text(
               formatDuration(ActiveHike.elapsed),
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 68,
                 height: 1,
                 fontWeight: FontWeight.w700,
@@ -224,14 +224,14 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
                 color: AppColors.pine,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               'MOVING TIME',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelSmall,
             ),
 
-            const SizedBox(height: 40),
+            SizedBox(height: 40),
 
             Row(
               children: [
@@ -281,17 +281,17 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
                     height: 58,
                     child: FilledButton.icon(
                       onPressed: _confirmStop,
-                      icon: const Icon(Icons.stop_rounded, size: 22),
-                      label: const Text('Stop'),
+                      icon: Icon(Icons.stop_rounded, size: 22),
+                      label: Text('Stop'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.alert,
-                        foregroundColor: Colors.white,
+                        backgroundColor: AppColors.alertFill,
+                        foregroundColor: AppColors.onAlert,
                         elevation: 0,
                         textStyle: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600),
@@ -381,7 +381,7 @@ class _BigStat extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -1.4,
@@ -389,9 +389,9 @@ class _BigStat extends StatelessWidget {
                 color: AppColors.ink,
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(unit,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppColors.inkSoft)),
@@ -418,10 +418,10 @@ class _SummaryStat extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.8,
@@ -433,3 +433,13 @@ class _SummaryStat extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
