@@ -329,3 +329,59 @@ Color avatarColorFor(String seed) {
 
 
 
+
+/// Hazards on one mountain over the last week, with a risk reading
+/// derived from how many there are and how severe.
+class TrailRisk {
+  final String trailName;
+  final List<HazardReport> reports;
+
+  const TrailRisk({required this.trailName, required this.reports});
+
+  int get criticalCount =>
+      reports.where((r) => r.level == AlertLevel.critical).length;
+
+  int get cautionCount =>
+      reports.where((r) => r.level == AlertLevel.caution).length;
+
+  /// The most recent report decides how current the picture is.
+  DateTime? get latest {
+    DateTime? newest;
+    for (final r in reports) {
+      final t = r.reportedAt;
+      if (t == null) continue;
+      if (newest == null || t.isAfter(newest)) newest = t;
+    }
+    return newest;
+  }
+
+  /// One critical report is enough to call a trail high risk. Several
+  /// lesser ones together also add up.
+  AlertLevel get level {
+    if (criticalCount > 0) return AlertLevel.critical;
+    if (cautionCount > 0 || reports.length >= 3) return AlertLevel.caution;
+    return AlertLevel.notice;
+  }
+
+  String get verdict {
+    switch (level) {
+      case AlertLevel.critical:
+        return "Avoid for now";
+      case AlertLevel.caution:
+        return "Go carefully";
+      case AlertLevel.notice:
+        return "Minor issues";
+    }
+  }
+
+  Color get color {
+    switch (level) {
+      case AlertLevel.critical:
+        return AppColors.alert;
+      case AlertLevel.caution:
+        return AppColors.blaze;
+      case AlertLevel.notice:
+        return AppColors.inkSoft;
+    }
+  }
+}

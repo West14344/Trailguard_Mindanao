@@ -30,6 +30,24 @@ class DayConditions {
     return "Low";
   }
 
+  /// How many days ahead this is. Day 0 is today.
+  int get daysAhead {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(date.year, date.month, date.day).difference(today).inDays;
+  }
+
+  /// Forecast accuracy drops off noticeably after about four days, so
+  /// later days are marked rather than presented with equal confidence.
+  bool get isLessCertain => daysAhead >= 4;
+
+  /// Short weekday label for the forecast strip.
+  String get shortDay {
+    const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (daysAhead == 0) return "Today";
+    return names[date.weekday - 1];
+  }
+
   /// "Today", "Tomorrow", then the weekday name.
   String get dayLabel {
     final now = DateTime.now();
@@ -117,7 +135,7 @@ class WeatherService {
       "&current=temperature_2m,precipitation,weather_code,wind_speed_10m"
       "&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,"
       "weather_code,wind_speed_10m_max"
-      "&timezone=auto&forecast_days=3",
+      "&timezone=auto&forecast_days=7",
     );
 
     final response = await http.get(uri).timeout(const Duration(seconds: 15));
@@ -142,7 +160,7 @@ class WeatherService {
     final winds = (daily["wind_speed_10m_max"] as List);
 
     final forecast = <DayConditions>[];
-    for (var i = 0; i < dates.length && i < 3; i++) {
+    for (var i = 0; i < dates.length && i < 7; i++) {
       final rain = (rains[i] as num?)?.toDouble() ?? 0;
       final dayWind = (winds[i] as num?)?.toDouble() ?? 0;
       final dayCode = (codes[i] as num?)?.toInt() ?? 0;

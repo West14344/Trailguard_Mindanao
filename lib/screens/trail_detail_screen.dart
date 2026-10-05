@@ -197,6 +197,43 @@ class _ConditionsView extends StatelessWidget {
           label: 'Difficulty',
           value: trail.difficulty,
         ),
+
+        if (conditions.forecast.isNotEmpty) ...[
+          const SizedBox(height: 30),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SectionLabel('7-day outlook'),
+          ),
+          const SizedBox(height: 12),
+          // Seven days scroll horizontally; fitting them all on screen
+          // would shrink each card below readable size.
+          SizedBox(
+            height: 150,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: conditions.forecast.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, i) => SizedBox(
+                width: 80,
+                child: _DayCard(day: conditions.forecast[i]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.swipe_rounded, size: 14, color: AppColors.inkSoft),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Swipe for the full week. Days four onward are less certain.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -217,7 +254,7 @@ class _LoadingConditions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        Text('Checking live conditions€¦',
+        Text('Checking live conditions‚¬¦',
             style: Theme.of(context).textTheme.titleMedium),
       ],
     );
@@ -295,3 +332,82 @@ class _Row extends StatelessWidget {
 
 
 
+
+
+/// One day in the week-long forecast.
+class _DayCard extends StatelessWidget {
+  final DayConditions day;
+  const _DayCard({required this.day});
+
+  IconData get _icon {
+    final c = day.weatherCode;
+    if (c == 0) return Icons.wb_sunny_outlined;
+    if (c <= 3) return Icons.cloud_outlined;
+    if (c <= 48) return Icons.foggy;
+    if (c <= 67) return Icons.water_drop_outlined;
+    if (c <= 86) return Icons.grain_rounded;
+    return Icons.thunderstorm_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = scoreColorFor(day.safetyScore);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            day.shortDay,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkSoft,
+            ),
+          ),
+          const SizedBox(height: 7),
+          // Later days are drawn fainter, so the strip itself shows that
+          // confidence tails off rather than only saying so.
+          Icon(_icon,
+              size: 23,
+              color: day.isLessCertain
+                  ? AppColors.inkSoft.withAlpha(120)
+                  : AppColors.inkSoft),
+          const SizedBox(height: 7),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: AppRadius.pill,
+            ),
+            child: Text(
+              '${day.safetyScore}%',
+              style: TextStyle(
+                color: AppColors.onAccent,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${day.maxTempC.round()}/${day.minTempC.round()}C',
+            style: TextStyle(fontSize: 10.5, color: AppColors.inkSoft),
+          ),
+          Text(
+            '${day.rainMm.toStringAsFixed(1)} mm',
+            style: TextStyle(fontSize: 10.5, color: AppColors.inkSoft),
+          ),
+        ],
+      ),
+    );
+  }
+}

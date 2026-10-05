@@ -186,7 +186,7 @@ class _Total extends StatelessWidget {
               fontSize: 20,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
-              color: AppColors.pine,
+              color: AppColors.heroFill,
             ),
           ),
           const SizedBox(height: 2),
@@ -245,7 +245,7 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.pine,
+      color: AppColors.heroFill,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
@@ -272,7 +272,7 @@ class _HeroCard extends StatelessWidget {
                   height: 1.1,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.8,
-                  color: Colors.white,
+                  color: AppColors.onHero,
                 ),
               ),
               SizedBox(height: 10),
@@ -342,6 +342,8 @@ class _Pill extends StatelessWidget {
     );
   }
 }
+
+
 
 
 

@@ -6,6 +6,7 @@ import "../data/hike_records.dart";
 import "../data/mock_data.dart";
 import "../data/mountains.dart";
 import "../services/firebase_service.dart";
+import "../services/hazard_vision.dart";
 import "../services/location_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
@@ -23,6 +24,8 @@ class _HazardReportScreenState extends State<HazardReportScreen> {
   Trail? _mountain;
   int? _selectedType;
   String? _photoPath;
+  HazardGuess? _guess;
+  bool _analysing = false;
   bool _sending = false;
   String? _error;
 
@@ -131,12 +134,30 @@ class _HazardReportScreenState extends State<HazardReportScreen> {
       maxWidth: 1600,
       imageQuality: 85,
     );
-    if (file != null && mounted) {
-      setState(() {
-        _photoPath = file.path;
-        _error = null;
-      });
-    }
+    if (file == null || !mounted) return;
+
+    setState(() {
+      _photoPath = file.path;
+      _error = null;
+      _guess = null;
+      _analysing = true;
+    });
+
+    // On-device image labelling. The model is general-purpose, so its
+    // answer is offered as a suggestion rather than applied silently.
+    final guess = await HazardVision.inspect(file.path);
+    if (!mounted) return;
+
+    setState(() {
+      _analysing = false;
+      _guess = (guess != null && guess.isUseful) ? guess : null;
+
+      // Only pre-select when the hiker has not already chosen a type.
+      if (_guess != null && _selectedType == null) {
+        final i = _types.indexWhere((t) => t[0] == _guess!.type);
+        if (i >= 0) _selectedType = i;
+      }
+    });
   }
 
   void _choosePhotoSource() {
@@ -331,6 +352,65 @@ class _HazardReportScreenState extends State<HazardReportScreen> {
                   ),
                   SizedBox(height: 12),
                   _photoBox(),
+
+                  if (_analysing) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.forest),
+                        ),
+                        const SizedBox(width: 10),
+                        Text("Reading the photo...",
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                  ] else if (_guess != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(13),
+                      decoration: BoxDecoration(
+                        color: AppColors.mist,
+                        borderRadius: AppRadius.field,
+                        border: Border.all(color: AppColors.forest),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded,
+                              size: 18, color: AppColors.forest),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Looks like ${_guess!.type}",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: AppColors.pine),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  "Suggested from the photo "
+                                  "(${_guess!.percent}% confidence). "
+                                  "Change it above if that is wrong.",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(height: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   SizedBox(height: 26),
                   LabeledField(
@@ -794,6 +874,10 @@ class _RequiredTag extends StatelessWidget {
     );
   }
 }
+
+
+
+
 
 
 

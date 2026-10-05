@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -28,7 +28,7 @@ class TrailGuardApp extends StatelessWidget {
           title: 'TrailGuard Mindanao',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.build(),
-          home: const WelcomeScreen(),
+          home: const SplashScreen(),
         );
       },
     );

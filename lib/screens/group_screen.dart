@@ -97,7 +97,7 @@ class _GroupScreenState extends State<GroupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("You have left the group."),
-        backgroundColor: AppColors.pine,
+        backgroundColor: AppColors.heroFill,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -526,14 +526,14 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text("Share code ${widget.code}"),
-                              backgroundColor: AppColors.pine,
+                              backgroundColor: AppColors.heroFill,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.mist,
-                          foregroundColor: AppColors.pine,
+                          foregroundColor: AppColors.heroFill,
                           elevation: 0,
                           padding: EdgeInsets.zero,
                           shape: const RoundedRectangleBorder(
@@ -582,8 +582,8 @@ class _MemberPin extends StatelessWidget {
       child: Center(
         child: Text(
           member.name.isEmpty ? "?" : member.name[0].toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppColors.onHero,
             fontSize: 14,
             fontWeight: FontWeight.w700,
           ),
@@ -621,9 +621,9 @@ class _MemberRow extends StatelessWidget {
             child: Center(
               child: Text(
                 member.name.isEmpty ? "?" : member.name[0].toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.onHero,
                 ),
               ),
             ),
@@ -667,6 +667,8 @@ class _MemberRow extends StatelessWidget {
     );
   }
 }
+
+
 
 
 

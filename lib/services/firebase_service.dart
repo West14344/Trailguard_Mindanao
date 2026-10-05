@@ -726,18 +726,91 @@ class FirebaseService {
       // The choice still applies locally if this fails.
     }
   }
+
+  /// Hazards from the last seven days, grouped by mountain with a risk
+  /// reading for each. Older reports are dropped: a fallen tree from two
+  /// weeks ago has usually been cleared, and stale warnings train people
+  /// to ignore the feed.
+  static Stream<List<TrailRisk>> trailRiskStream() {
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+
+    return _hazards
+        .where("status", isEqualTo: "active")
+        .orderBy("reportedAt", descending: true)
+        .limit(200)
+        .snapshots()
+        .map((snap) {
+      final reports = snap.docs
+          .map((doc) {
+            final d = doc.data();
+            return HazardReport(
+              id: doc.id,
+              type: d["type"] as String? ?? "Hazard",
+              description: d["description"] as String? ?? "",
+              nearestTrail: d["nearestTrail"] as String? ?? "Unknown trail",
+              latitude: (d["latitude"] as num?)?.toDouble(),
+              longitude: (d["longitude"] as num?)?.toDouble(),
+              reportedByName: d["reportedByName"] as String? ?? "A hiker",
+              reportedAt: (d["reportedAt"] as Timestamp?)?.toDate(),
+            );
+          })
+          .where((r) => r.reportedAt == null || r.reportedAt!.isAfter(cutoff))
+          .toList();
+
+      final byTrail = <String, List<HazardReport>>{};
+      for (final r in reports) {
+        byTrail.putIfAbsent(r.nearestTrail, () => []).add(r);
+      }
+
+      final risks = byTrail.entries
+          .map((e) => TrailRisk(trailName: e.key, reports: e.value))
+          .toList()
+        ..sort((a, b) {
+          // Worst first: critical count, then total.
+          final bySeverity = b.criticalCount.compareTo(a.criticalCount);
+          if (bySeverity != 0) return bySeverity;
+          return b.reports.length.compareTo(a.reports.length);
+        });
+
+      return risks;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Password change
+  // -------------------------------------------------------------------------
+
+  /// Firebase requires a recent sign-in before changing a password, so the
+  /// current one is verified first. Returns null on success.
+  static Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return "You are not signed in.";
+
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: user.email ?? HikerProfile.email,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      if (e.code == "invalid-credential" ||
+          e.code == "wrong-password" ||
+          e.code == "invalid-login-credentials") {
+        return "Your current password is incorrect.";
+      }
+      return _authMessage(e);
+    }
+
+    try {
+      await user.updatePassword(newPassword);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _authMessage(e);
+    } catch (_) {
+      return "Could not change the password. Check your connection.";
+    }
+  }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -6,6 +6,7 @@ import "../data/mock_data.dart";
 import "../services/firebase_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
+import "change_password_screen.dart";
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -242,6 +243,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 14),
+                  // Changing a password needs re-authentication, so it has
+                  // its own screen rather than sitting inline here.
+                  Material(
+                    color: AppColors.card,
+                    borderRadius: AppRadius.card,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ChangePasswordScreen()),
+                      ),
+                      borderRadius: AppRadius.card,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: AppRadius.card,
+                          border: Border.all(color: AppColors.line),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.lock_outline_rounded,
+                                size: 20, color: AppColors.forest),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Text("Change password",
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium),
+                            ),
+                            Icon(Icons.chevron_right_rounded,
+                                size: 20, color: AppColors.inkSoft),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 26),
                   const SectionLabel("Experience level"),
                   const SizedBox(height: 12),
@@ -444,7 +483,7 @@ class ProfileAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.pine,
+        color: AppColors.heroFill,
         shape: BoxShape.circle,
       ),
       clipBehavior: Clip.antiAlias,
@@ -459,4 +498,6 @@ class ProfileAvatar extends StatelessWidget {
     );
   }
 }
+
+
 

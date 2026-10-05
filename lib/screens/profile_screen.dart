@@ -5,6 +5,7 @@ import "../services/firebase_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
 import "achievements_screen.dart";
+import "delete_account_screen.dart";
 import "edit_profile_screen.dart";
 import "welcome_screen.dart";
 
@@ -234,6 +235,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           SizedBox(height: 24),
+          // Sits above Log out and styled identically in red, so the two
+          // destructive actions read as a pair rather than one hiding.
+          SecondaryButton(
+            label: "Delete account",
+            icon: Icons.delete_outline_rounded,
+            color: AppColors.alert,
+            onPressed: () => _push(const DeleteAccountScreen()),
+          ),
+          const SizedBox(height: 12),
           SecondaryButton(
             label: "Log out",
             icon: Icons.logout_rounded,
@@ -316,6 +326,10 @@ class _AccountRow extends StatelessWidget {
     );
   }
 }
+
+
+
+
 
 
 

@@ -33,7 +33,7 @@ class WelcomeScreen extends StatelessWidget {
                 'TrailGuard Mindanao',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: AppColors.pine,
+                      color: AppColors.heroFill,
                       fontSize: 30,
                     ),
               ),
@@ -83,7 +83,7 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.mist,
-                    foregroundColor: AppColors.pine,
+                    foregroundColor: AppColors.heroFill,
                     elevation: 0,
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.pill,
@@ -104,6 +104,8 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 
 
