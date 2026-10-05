@@ -1,4 +1,4 @@
-﻿import "dart:convert";
+import "dart:convert";
 import "package:http/http.dart" as http;
 
 /// Conditions for one day, with a safety score derived from them.

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'main_shell.dart';
@@ -11,7 +11,7 @@ class PermissionsScreen extends StatefulWidget {
 }
 
 class _PermissionsScreenState extends State<PermissionsScreen> {
-  // Cosmetic only for now â€” no permission_handler calls yet.
+  // Cosmetic only for now €” no permission_handler calls yet.
   final _granted = <bool>[true, true, false];
 
   static const _items = [

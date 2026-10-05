@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
@@ -205,7 +205,7 @@ class _RecordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          Text('${record.region} Â· $_date',
+          Text('${record.region} · $_date',
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 14),
           Row(

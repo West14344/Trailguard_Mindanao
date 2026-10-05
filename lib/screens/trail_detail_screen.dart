@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../data/mock_data.dart';
 import '../services/weather_service.dart';
@@ -79,7 +79,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 4),
                   Text(
-                    '${trail.region} Â· ${trail.difficulty} Â· ${trail.duration}',
+                    '${trail.region} · ${trail.difficulty} · ${trail.duration}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
 
@@ -163,7 +163,7 @@ class _ConditionsView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Center(
-          child: Text('Live conditions Â· updated just now',
+          child: Text('Live conditions · updated just now',
               style: Theme.of(context).textTheme.bodySmall),
         ),
 
@@ -183,7 +183,7 @@ class _ConditionsView extends StatelessWidget {
           icon: Icons.water_drop_outlined,
           label: 'Rainfall risk',
           value:
-              '${conditions.rainfallRisk} Â· ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
+              '${conditions.rainfallRisk} · ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
         ),
         const SizedBox(height: 10),
         _Row(
@@ -217,7 +217,7 @@ class _LoadingConditions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        Text('Checking live conditionsâ€¦',
+        Text('Checking live conditions€¦',
             style: Theme.of(context).textTheme.titleMedium),
       ],
     );

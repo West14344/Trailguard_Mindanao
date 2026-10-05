@@ -1,4 +1,4 @@
-﻿import "package:flutter/material.dart";
+import "package:flutter/material.dart";
 import "../theme/app_theme.dart";
 
 /// Shared score thresholds so the ring, chips and pins never disagree.

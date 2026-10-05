@@ -1,4 +1,4 @@
-﻿import "package:flutter/material.dart";
+import "package:flutter/material.dart";
 import "../theme/app_theme.dart";
 
 /// Shown while the profile and hike history load after signing in.

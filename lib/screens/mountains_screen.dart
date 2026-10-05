@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
 import '../data/mountains.dart';
 import '../theme/app_theme.dart';
@@ -261,7 +261,7 @@ class MountainRow extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 3),
                 Text(
-                  '${mountain.region} Â· ${mountain.duration}',
+                  '${mountain.region} · ${mountain.duration}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
