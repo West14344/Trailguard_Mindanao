@@ -14,6 +14,11 @@ import "group_setup_screens.dart";
 
 const _distanceCalculator = Distance();
 
+/// Someone with no hike running is judged on distance instead of mountain
+/// name. Twenty kilometres is generous enough for different trailheads on
+/// the same massif, tight enough to exclude someone still in town.
+const double _sameAreaMetres = 20000;
+
 class GroupScreen extends StatefulWidget {
   const GroupScreen({super.key});
 
@@ -56,6 +61,64 @@ class _GroupScreenState extends State<GroupScreen> {
       MaterialPageRoute(builder: (_) => screen),
     );
     if (joined == true && mounted) setState(() {});
+  }
+
+  /// Deletes the group for everyone, permanently. Only the creator ever
+  /// sees the button that reaches this.
+  Future<void> _confirmDelete() async {
+    final code = GroupSession.code;
+    if (code == null) return;
+    final name = GroupSession.name;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text("Delete this group?"),
+        content: Text(
+          "This removes $name for everyone in it, along with the chat, the "
+          "shared photos and every member's position. It cannot be undone, "
+          "and the code $code will stop working.",
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(foregroundColor: AppColors.inkSoft),
+            child: Text("Keep group"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.alert),
+            child: const Text("Delete forever"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final error = await FirebaseService.deleteGroup(code);
+    if (!mounted) return;
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: AppColors.alert,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("$name was deleted."),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   /// Leaving is easy to hit by accident, so it always confirms first.
@@ -122,6 +185,7 @@ class _GroupScreenState extends State<GroupScreen> {
       key: ValueKey(GroupSession.code),
       code: GroupSession.code!,
       onLeave: _confirmLeave,
+      onDelete: _confirmDelete,
     );
   }
 }
@@ -205,10 +269,12 @@ class _GroupEntryView extends StatelessWidget {
 class _GroupLiveView extends StatefulWidget {
   final String code;
   final VoidCallback onLeave;
+  final VoidCallback onDelete;
   const _GroupLiveView({
     super.key,
     required this.code,
     required this.onLeave,
+    required this.onDelete,
   });
 
   @override
@@ -219,10 +285,13 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
   final _mapController = MapController();
   Timer? _pusher;
   bool _followMe = true;
+  bool _mapReady = false;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
+    _checkAdmin();
     _pushPosition();
     // Every 8 seconds keeps the map current without burning quota.
     _pusher = Timer.periodic(
@@ -237,7 +306,17 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
     super.dispose();
   }
 
+  /// The delete button only exists for whoever created the group, so the
+  /// answer is needed before the header is drawn.
+  Future<void> _checkAdmin() async {
+    final admin = await FirebaseService.isGroupAdmin(widget.code);
+    if (!mounted) return;
+    setState(() => _isAdmin = admin);
+  }
+
   /// Shares where this hiker is so the rest of the group can see them.
+  /// The mountain goes up with it, which is what lets the map keep the
+  /// group together instead of zooming out across the island.
   Future<void> _pushPosition() async {
     double? lat = ActiveHike.latitude;
     double? lng = ActiveHike.longitude;
@@ -255,9 +334,10 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
       code: widget.code,
       latitude: lat,
       longitude: lng,
+      trailName: ActiveHike.trail?.name,
     );
 
-    if (_followMe && mounted) {
+    if (_followMe && _mapReady && mounted) {
       _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
     }
   }
@@ -269,6 +349,37 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
       LatLng(you.latitude!, you.longitude!),
       LatLng(other.latitude!, other.longitude!),
     );
+  }
+
+  /// Everyone who is plausibly on the same mountain as you.
+  ///
+  /// A member reporting the same trail name is in, full stop. A member with
+  /// no hike running has no trail name, so they are kept only if they are
+  /// close enough to be on the same massif. Anyone else is somewhere else
+  /// entirely and would only drag the map off the trail.
+  List<GroupMember> _onYourMountain(
+    List<GroupMember> positioned,
+    GroupMember? you,
+  ) {
+    final String? yourMountain = ActiveHike.trail?.name ?? you?.trailName;
+    final keep = <GroupMember>[];
+
+    for (final m in positioned) {
+      if (m.isYou) {
+        keep.add(m);
+        continue;
+      }
+
+      if (yourMountain != null && m.trailName != null) {
+        if (m.trailName == yourMountain) keep.add(m);
+        continue;
+      }
+
+      final d = you == null ? null : _metresFromYou(you, m);
+      if (d == null || d <= _sameAreaMetres) keep.add(m);
+    }
+
+    return keep;
   }
 
   String _formatDistance(double metres) {
@@ -294,6 +405,12 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
     );
   }
 
+  void _focusOn(GroupMember m) {
+    if (!m.hasPosition || !_mapReady) return;
+    setState(() => _followMe = false);
+    _mapController.move(LatLng(m.latitude!, m.longitude!), 16);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -310,7 +427,25 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
             if (m.isYou) you = m;
           }
 
+          final emergencies =
+              members.where((m) => m.sosActive && !m.isYou).toList();
+          final yourOwnSos = you != null && you.sosActive;
+
+          final positioned = members.where((m) => m.hasPosition).toList();
+          final onMountain = _onYourMountain(positioned, you);
+
+          // An emergency is drawn wherever it is. If somebody is in trouble
+          // on another mountain you still want to see them.
+          final visible = <GroupMember>[
+            ...onMountain,
+            ...positioned
+                .where((m) => m.sosActive && !onMountain.contains(m)),
+          ];
+          final hiddenCount = positioned.length - visible.length;
+
+          // Sort: emergencies first, then you, then nearest.
           final sorted = [...members]..sort((a, b) {
+              if (a.sosActive != b.sosActive) return a.sosActive ? -1 : 1;
               if (a.isYou) return -1;
               if (b.isYou) return 1;
               final da = you == null ? null : _metresFromYou(you, a);
@@ -321,15 +456,24 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
               return da.compareTo(db);
             });
 
-          final positioned = members.where((m) => m.hasPosition).toList();
-          final centre = you != null && you.hasPosition
-              ? LatLng(you.latitude!, you.longitude!)
-              : positioned.isEmpty
-                  ? null
-                  : LatLng(
-                      positioned.first.latitude!,
-                      positioned.first.longitude!,
-                    );
+          // The map opens on the emergency if there is one.
+          GroupMember? focus;
+          for (final m in visible) {
+            if (m.sosActive) {
+              focus = m;
+              break;
+            }
+          }
+
+          LatLng? centre;
+          if (focus != null) {
+            centre = LatLng(focus.latitude!, focus.longitude!);
+          } else if (you != null && you.hasPosition) {
+            centre = LatLng(you.latitude!, you.longitude!);
+          } else if (visible.isNotEmpty) {
+            centre =
+                LatLng(visible.first.latitude!, visible.first.longitude!);
+          }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,6 +506,13 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                           color: AppColors.forest),
                       tooltip: "Group chat",
                     ),
+                    if (_isAdmin)
+                      IconButton(
+                        onPressed: widget.onDelete,
+                        icon: Icon(Icons.delete_outline_rounded,
+                            color: AppColors.alert),
+                        tooltip: "Delete group",
+                      ),
                     IconButton(
                       onPressed: widget.onLeave,
                       icon: Icon(Icons.logout_rounded,
@@ -372,6 +523,23 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                 ),
               ),
               SizedBox(height: 12),
+
+              // The emergency banner sits above everything. Nothing else on
+              // this screen matters while somebody is in trouble.
+              if (emergencies.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: _EmergencyBanner(
+                    members: emergencies,
+                    onFocus: _focusOn,
+                  ),
+                ),
+
+              if (yourOwnSos)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: _YourSosBanner(),
+                ),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -389,9 +557,12 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                                 child: Text(
                                   loading
                                       ? "Loading group..."
-                                      : "No positions yet. Members appear "
-                                          "once their phones report a "
-                                          "location.",
+                                      : hiddenCount > 0
+                                          ? "Nobody from this group is on "
+                                              "your mountain yet."
+                                          : "No positions yet. Members "
+                                              "appear once their phones "
+                                              "report a location.",
                                   textAlign: TextAlign.center,
                                   style:
                                       Theme.of(context).textTheme.bodySmall,
@@ -406,6 +577,9 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                                 options: MapOptions(
                                   initialCenter: centre,
                                   initialZoom: 15,
+                                  onMapReady: () {
+                                    if (!_mapReady) _mapReady = true;
+                                  },
                                   // Panning by hand turns off following,
                                   // so the map does not fight the user.
                                   onPointerDown: (_, _) {
@@ -423,12 +597,12 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                                   ),
                                   MarkerLayer(
                                     markers: [
-                                      for (final m in positioned)
+                                      for (final m in visible)
                                         Marker(
                                           point: LatLng(
                                               m.latitude!, m.longitude!),
-                                          width: 38,
-                                          height: 38,
+                                          width: m.sosActive ? 48 : 38,
+                                          height: m.sosActive ? 48 : 38,
                                           child: _MemberPin(member: m),
                                         ),
                                     ],
@@ -448,7 +622,9 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                                     customBorder: const CircleBorder(),
                                     onTap: () {
                                       setState(() => _followMe = true);
-                                      if (you != null && you.hasPosition) {
+                                      if (you != null &&
+                                          you.hasPosition &&
+                                          _mapReady) {
                                         _mapController.move(
                                           LatLng(
                                               you.latitude!, you.longitude!),
@@ -474,6 +650,26 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                   ),
                 ),
               ),
+
+              if (hiddenCount > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.filter_alt_outlined,
+                          size: 14, color: AppColors.inkSoft),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "$hiddenCount ${hiddenCount == 1 ? "hiker is" : "hikers are"} "
+                          "on another mountain and not shown on the map.",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 16),
 
               Expanded(
@@ -486,21 +682,27 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
                     final metres =
                         you == null ? null : _metresFromYou(you, m);
 
-                    final label = m.isYou
-                        ? "You"
-                        : !m.hasPosition
-                            ? "No position"
-                            : metres == null
-                                ? "Unknown"
-                                : metres < 50
-                                    ? "Together"
-                                    : "${_formatDistance(metres)} away";
+                    final label = m.sosActive
+                        ? "EMERGENCY"
+                        : m.isYou
+                            ? "You"
+                            : !m.hasPosition
+                                ? "No position"
+                                : metres == null
+                                    ? "Unknown"
+                                    : metres < 50
+                                        ? "Together"
+                                        : "${_formatDistance(metres)} away";
 
                     return _MemberRow(
                       member: m,
                       label: label,
-                      color:
-                          m.isYou ? AppColors.forest : _statusColor(metres),
+                      color: m.sosActive
+                          ? AppColors.alert
+                          : m.isYou
+                              ? AppColors.forest
+                              : _statusColor(metres),
+                      onTap: m.hasPosition ? () => _focusOn(m) : null,
                     );
                   },
                 ),
@@ -556,14 +758,135 @@ class _GroupLiveViewState extends State<_GroupLiveView> {
 
 // ---------------------------------------------------------------------------
 
+/// Red banner naming whoever is in trouble, with a tap to centre the map
+/// on them.
+class _EmergencyBanner extends StatelessWidget {
+  final List<GroupMember> members;
+  final void Function(GroupMember) onFocus;
+
+  const _EmergencyBanner({required this.members, required this.onFocus});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.alert,
+      borderRadius: AppRadius.card,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sos_rounded, size: 22, color: Colors.white),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    members.length == 1
+                        ? "${members.first.name} needs help"
+                        : "${members.length} hikers need help",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (final m in members)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        m.hasPosition
+                            ? "${m.name} - SOS ${m.sosAgo}"
+                            : "${m.name} - SOS ${m.sosAgo}, no position",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                    if (m.hasPosition)
+                      TextButton(
+                        onPressed: () => onFocus(m),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 10),
+                          minimumSize: Size.zero,
+                          tapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text("Show on map"),
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reminder that your own SOS is still open, so it does not sit forgotten.
+class _YourSosBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x14B3261E),
+        borderRadius: AppRadius.card,
+        border: Border.all(color: AppColors.alert, width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 20, color: AppColors.alert),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "Your SOS is still open. Open the SOS screen and mark "
+              "yourself safe once you no longer need help.",
+              style: TextStyle(fontSize: 12.5, color: AppColors.alert),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Colour comes from the person's email, so the same hiker looks the same
-/// to everyone in the group.
+/// to everyone in the group. An open SOS overrides it with red.
 class _MemberPin extends StatelessWidget {
   final GroupMember member;
   const _MemberPin({required this.member});
 
   @override
   Widget build(BuildContext context) {
+    if (member.sosActive) {
+      return Container(
+        decoration: BoxDecoration(
+          color: AppColors.alert,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3.5),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.priority_high_rounded,
+            size: 22,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
     final colour = member.isYou
         ? AppColors.pine
         : avatarColorFor(member.email);
@@ -597,20 +920,25 @@ class _MemberRow extends StatelessWidget {
   final GroupMember member;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   const _MemberRow({
     required this.member,
     required this.label,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colour = member.isYou
-        ? AppColors.pine
-        : avatarColorFor(member.email);
+    final emergency = member.sosActive;
+    final colour = emergency
+        ? AppColors.alert
+        : member.isYou
+            ? AppColors.pine
+            : avatarColorFor(member.email);
 
-    return AppCard(
+    final card = AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       child: Row(
         children: [
@@ -619,13 +947,18 @@ class _MemberRow extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(color: colour, shape: BoxShape.circle),
             child: Center(
-              child: Text(
-                member.name.isEmpty ? "?" : member.name[0].toUpperCase(),
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onHero,
-                ),
-              ),
+              child: emergency
+                  ? Icon(Icons.priority_high_rounded,
+                      size: 20, color: Colors.white)
+                  : Text(
+                      member.name.isEmpty
+                          ? "?"
+                          : member.name[0].toUpperCase(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onHero,
+                      ),
+                    ),
             ),
           ),
           SizedBox(width: 13),
@@ -639,12 +972,29 @@ class _MemberRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                if (!member.isYou && member.hasPosition && member.isStale)
+                if (emergency)
+                  Text(
+                    member.hasPosition
+                        ? "SOS raised ${member.sosAgo}"
+                        : "SOS raised ${member.sosAgo}, no position",
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.alert),
+                  )
+                else if (!member.isYou &&
+                    member.hasPosition &&
+                    member.isStale)
                   Text("Position may be out of date",
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(color: AppColors.blaze)),
+                          ?.copyWith(color: AppColors.blaze))
+                else if (!member.isYou && member.trailName != null)
+                  Text(member.trailName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
@@ -665,18 +1015,13 @@ class _MemberRow extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap == null) return card;
+
+    return InkWell(
+      borderRadius: AppRadius.card,
+      onTap: onTap,
+      child: card,
+    );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

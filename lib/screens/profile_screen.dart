@@ -221,15 +221,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: "Contact number",
                   trailing: HikerProfile.emergencyNumber,
                 ),
-                Divider(height: 1, color: AppColors.line),
-
-                // Tappable, so the language can be changed without
-                // hunting through settings.
-                _AccountRow(
-                  icon: Icons.download_outlined,
-                  label: "Offline maps",
-                  trailing: "None saved",
-                ),
               ],
             ),
           ),

@@ -261,7 +261,7 @@ class MountainRow extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 3),
                 Text(
-                  '${mountain.region} · ${mountain.duration}',
+                  '${mountain.region} \u00B7 ${mountain.duration}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,

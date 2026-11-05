@@ -130,8 +130,23 @@ class AppTheme {
       highlightColor: AppColors.forest.withAlpha(10),
       dialogTheme: DialogThemeData(backgroundColor: AppColors.card),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.card,
-        contentTextStyle: TextStyle(color: AppColors.ink),
+        // Call sites set their own dark background - pine for
+        // confirmations, alert red for emergencies - so the label is
+        // always light. A dark default keeps an unstyled one legible.
+        backgroundColor: AppColors.pine,
+        contentTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 14.5,
+          height: 1.4,
+          fontWeight: FontWeight.w500,
+        ),
+        actionTextColor: Colors.white,
+        behavior: SnackBarBehavior.floating,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        elevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
       ),
       textTheme: TextTheme(
         // Headings drop to a medium weight in dark mode. Bold strokes

@@ -310,19 +310,6 @@ class _TrailMapScreenState extends State<TrailMapScreen> {
                 ),
                 SizedBox(height: 12),
 
-                PrimaryButton(
-                  label: "Download offline map",
-                  icon: Icons.download_outlined,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Offline download is planned"),
-                        backgroundColor: AppColors.pine,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
               ],
             ),
           );

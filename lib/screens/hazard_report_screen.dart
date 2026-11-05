@@ -10,6 +10,7 @@ import "../services/hazard_vision.dart";
 import "../services/location_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
+import '../widgets/compass_button.dart';
 
 class HazardReportScreen extends StatefulWidget {
   /// Pre-selects the trail when opened from a trail page.
@@ -292,6 +293,12 @@ class _HazardReportScreenState extends State<HazardReportScreen> {
                   _MountainField(
                     mountain: mountain,
                     onTap: _sending ? null : _pickMountain,
+                  ),
+
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: CompassButton(),
                   ),
 
                   const SizedBox(height: 26),

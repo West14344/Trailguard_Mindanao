@@ -2,11 +2,19 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../data/hike_records.dart';
+import '../services/breadcrumb_trail.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
+import '../widgets/backtrack_button.dart';
 
 /// Live tracking view. Replaces the dashboard while a hike is running.
+///
+/// Distance comes from the GPS, not from a timer: a phone sitting on a rock
+/// adds nothing. Three gates keep drift out of the total - the fix has to be
+/// accurate enough to trust, the step has to be bigger than the error radius,
+/// and the implied speed has to be humanly possible.
 class HikeTrackingView extends StatefulWidget {
   final VoidCallback onFinished;
   const HikeTrackingView({super.key, required this.onFinished});
@@ -16,56 +24,176 @@ class HikeTrackingView extends StatefulWidget {
 }
 
 class _HikeTrackingViewState extends State<HikeTrackingView> {
-  Timer? _ticker;
-  final _random = math.Random();
+  /// Fixes sloppier than this say nothing useful about movement.
+  static const double _worstAccuracyM = 50;
 
-  /// Simulated walking pace. Replace this block with a geolocator position
-  /// stream and the rest of the screen works unchanged.
-  double _speedKph = 4.2;
-  int _secondsUntilRest = 50;
-  int _restSecondsLeft = 0;
+  /// Never count a step smaller than this, however good the fix claims to be.
+  static const double _minStepM = 8;
+
+  /// A "step" faster than this is a GPS jump, not a hiker.
+  static const double _maxSpeedMs = 6.0;
+
+  /// No real movement for this long and the clock stops too.
+  static const int _autoPauseAfterS = 45;
+
+  Timer? _ticker;
+  StreamSubscription<Position>? _gps;
+
+  Position? _lastAccepted;
+  DateTime _lastAcceptedAt = DateTime.now();
+  DateTime _lastMovementAt = DateTime.now();
+
+  double? _accuracyM;
+  String? _gpsError;
+  bool _waitingForFix = true;
 
   @override
   void initState() {
     super.initState();
+    _startGps();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _gps?.cancel();
     super.dispose();
+  }
+
+  Future<void> _startGps() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (!mounted) return;
+        setState(() {
+          _gpsError = 'Location is switched off, so distance cannot be '
+              'measured. Turn it on and restart the hike.';
+          _waitingForFix = false;
+        });
+        return;
+      }
+
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() {
+          _gpsError = 'Location permission is off, so distance cannot be '
+              'measured.';
+          _waitingForFix = false;
+        });
+        return;
+      }
+
+      _gps = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 0,
+        ),
+      ).listen(_onPosition, onError: (Object _) {});
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _gpsError = 'Could not start GPS tracking.';
+        _waitingForFix = false;
+      });
+    }
+  }
+
+  void _onPosition(Position p) {
+    if (!mounted || !ActiveHike.isActive) return;
+
+    // Always publish the latest fix, even one too rough to measure with.
+    // SOS, hazard reports and the group map all read these.
+    ActiveHike.latitude = p.latitude;
+    ActiveHike.longitude = p.longitude;
+    ActiveHike.accuracyM = p.accuracy;
+    BreadcrumbTrail.record(p);
+
+    if (_waitingForFix || _accuracyM != p.accuracy) {
+      setState(() {
+        _waitingForFix = false;
+        _accuracyM = p.accuracy;
+        _gpsError = null;
+      });
+    }
+
+    // A manual pause means the hiker said they stopped. Keep the reference
+    // point current so resuming does not bank the gap as one huge step.
+    if (ActiveHike.isPaused) {
+      _lastAccepted = p;
+      _lastAcceptedAt = DateTime.now();
+      return;
+    }
+
+    // The "moving" badge follows the receiver's own speed, which is
+    // doppler-derived and reports motion long before enough
+    // displacement has piled up to credit a step of distance.
+    if (p.speed.isFinite && p.speed >= 0.6) {
+      _lastMovementAt = DateTime.now();
+      if (ActiveHike.isAutoPaused) {
+        setState(() => ActiveHike.isAutoPaused = false);
+      }
+    }
+
+    if (p.accuracy > _worstAccuracyM) return;
+
+    final Position? previous = _lastAccepted;
+    if (previous == null) {
+      _lastAccepted = p;
+      _lastAcceptedAt = DateTime.now();
+      return;
+    }
+
+    final double metres = Geolocator.distanceBetween(
+      previous.latitude,
+      previous.longitude,
+      p.latitude,
+      p.longitude,
+    );
+
+    // Scale the threshold with the reported error. A fix good to 4 m can be
+    // trusted over 8 m; a fix good to 20 m needs a bigger move to be real.
+    final double threshold =
+        math.min(20.0, math.max(_minStepM, p.accuracy * 0.5));
+    if (metres < threshold) return; // standing still, or drifting in place
+
+    final double seconds =
+        DateTime.now().difference(_lastAcceptedAt).inMilliseconds / 1000;
+    if (seconds <= 0) return;
+
+    final double speed = metres / seconds;
+    if (speed > _maxSpeedMs) {
+      // A jump, not a walk. Re-anchor without crediting the distance.
+      _lastAccepted = p;
+      _lastAcceptedAt = DateTime.now();
+      return;
+    }
+
+    setState(() {
+      ActiveHike.distanceKm += metres / 1000;
+      _lastAccepted = p;
+      _lastAcceptedAt = DateTime.now();
+      _lastMovementAt = DateTime.now();
+      ActiveHike.isAutoPaused = false;
+    });
   }
 
   void _tick() {
     if (!mounted || !ActiveHike.isActive) return;
-
-    // A manual pause freezes everything until the hiker resumes.
     if (ActiveHike.isPaused) return;
 
+    final int idle = DateTime.now().difference(_lastMovementAt).inSeconds;
+    final bool autoPaused = idle >= _autoPauseAfterS;
+
     setState(() {
-      if (_restSecondsLeft > 0) {
-        // No movement detected, so the clock and distance both stop.
-        _restSecondsLeft--;
-        ActiveHike.isAutoPaused = true;
-        if (_restSecondsLeft == 0) {
-          _secondsUntilRest = 45 + _random.nextInt(40);
-        }
-        return;
-      }
-
-      ActiveHike.isAutoPaused = false;
-
-      // Pace drifts a little so the numbers do not look mechanical.
-      _speedKph = (_speedKph + (_random.nextDouble() - 0.5) * 0.4)
-          .clamp(3.0, 5.4);
-
-      ActiveHike.elapsed += const Duration(seconds: 1);
-      ActiveHike.distanceKm += _speedKph / 3600;
-
-      _secondsUntilRest--;
-      if (_secondsUntilRest <= 0) {
-        _restSecondsLeft = 8 + _random.nextInt(8);
+      ActiveHike.isAutoPaused = autoPaused;
+      // Moving time means moving. Standing still does not count.
+      if (!autoPaused) {
+        ActiveHike.elapsed += const Duration(seconds: 1);
       }
     });
   }
@@ -76,6 +204,18 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
     final m = minPerKm.floor();
     final s = ((minPerKm - m) * 60).round().toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  String get _gpsLabel {
+    if (_gpsError != null) return _gpsError!;
+    if (_waitingForFix) return 'Finding GPS. Distance starts once you move.';
+    final a = _accuracyM;
+    if (a == null) return 'GPS ready.';
+    if (a > _worstAccuracyM) {
+      return 'GPS accurate to ${a.round()} m - too rough to measure. '
+          'Move to open sky.';
+    }
+    return 'GPS accurate to ${a.round()} m.';
   }
 
   Future<void> _confirmStop() async {
@@ -109,6 +249,8 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
 
     final record = ActiveHike.finish();
     _ticker?.cancel();
+    _gps?.cancel();
+    BreadcrumbTrail.end();
     widget.onFinished();
 
     if (record != null && mounted) {
@@ -183,6 +325,9 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
 
     final paused = ActiveHike.isPaused;
     final autoPaused = ActiveHike.isAutoPaused;
+    final problem = _gpsError != null ||
+        _waitingForFix ||
+        (_accuracyM != null && _accuracyM! > _worstAccuracyM);
 
     return SafeArea(
       bottom: false,
@@ -253,7 +398,36 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
               ],
             ),
 
+            const SizedBox(height: 18),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  problem
+                      ? Icons.gps_not_fixed_rounded
+                      : Icons.gps_fixed_rounded,
+                  size: 15,
+                  color: problem ? AppColors.blaze : AppColors.forest,
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    _gpsLabel,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: problem ? AppColors.blaze : AppColors.inkSoft,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
             const Spacer(flex: 3),
+
+            const BacktrackButton(),
+            const SizedBox(height: 14),
 
             Row(
               children: [
@@ -327,7 +501,7 @@ class _StatusChip extends StatelessWidget {
     final (label, color) = paused
         ? ('Paused', AppColors.inkSoft)
         : autoPaused
-            ? ('Auto-paused', AppColors.blaze)
+            ? ('Not moving', AppColors.blaze)
             : ('Moving', AppColors.forest);
 
     return Container(
@@ -433,13 +607,3 @@ class _SummaryStat extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-

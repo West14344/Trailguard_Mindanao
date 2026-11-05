@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../data/hike_records.dart';
 import '../data/mock_data.dart';
+import 'photo_thumbnail.dart';
 
 /// Every Firebase call in the app goes through here, so screens never talk
 /// to Firestore directly and the data layer can change in one place.
@@ -167,6 +170,7 @@ class FirebaseService {
         data['emergencyContactName'] as String? ?? '';
     HikerProfile.emergencyNumber =
         data['emergencyContactNumber'] as String? ?? '';
+    HikerProfile.photoBase64 = data['photoBase64'] as String?;
   }
 
   static Future<void> saveProfile() async {
@@ -178,6 +182,7 @@ class FirebaseService {
       'experienceLevel': HikerProfile.experienceLevel,
       'emergencyContactName': HikerProfile.emergencyContact,
       'emergencyContactNumber': HikerProfile.emergencyNumber,
+      'photoBase64': HikerProfile.photoBase64,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -252,6 +257,10 @@ class FirebaseService {
         "reportedBy": id,
         "reportedByName": HikerProfile.fullName,
         "reportedAt": FieldValue.serverTimestamp(),
+        // Firestore TTL deletes the report a week after filing.
+        "expiresAt": Timestamp.fromDate(
+          DateTime.now().add(const Duration(days: 7)),
+        ),
         "status": "active",
       });
       return null;
@@ -270,7 +279,16 @@ class FirebaseService {
         .orderBy("reportedAt", descending: true)
         .limit(50)
         .snapshots()
-        .map((snap) => snap.docs.map(_alertFromDoc).toList());
+        .map((snap) {
+      // Hazards age out after a week. TTL removes them server side,
+      // but filtering here means they vanish on the dot rather than
+      // whenever the sweep happens to run.
+      final cutoff = DateTime.now().subtract(const Duration(days: 7));
+      return snap.docs.where((doc) {
+        final filed = (doc.data()["reportedAt"] as Timestamp?)?.toDate();
+        return filed == null || filed.isAfter(cutoff);
+      }).map(_alertFromDoc).toList();
+    });
   }
 
   static TrailAlert _alertFromDoc(
@@ -419,11 +437,23 @@ class FirebaseService {
       "email": HikerProfile.email,
       "latitude": null,
       "longitude": null,
+      "trailName": ActiveHike.trail?.name,
+      "sosActive": false,
+      "sosAt": null,
       "lastUpdated": FieldValue.serverTimestamp(),
       "joinedAt": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     await _userDoc(id).update({"currentGroupCode": code});
+
+    // Bring your picture with you into the new group.
+    final photo = HikerProfile.photoBase64;
+    if (photo != null) {
+      await _photos(code).doc(id).set({
+        "photo": photo,
+        "updatedAt": FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   /// The group's name, or null if it has gone.
@@ -433,11 +463,13 @@ class FirebaseService {
   }
 
   /// Pushes this hiker's position so everyone else sees them move.
-  /// Called from the group screen while a hike is running.
+  /// The mountain goes with it, so the group map can tell the difference
+  /// between somebody on this trail and somebody three islands away.
   static Future<void> updateMyPosition({
     required String code,
     required double latitude,
     required double longitude,
+    String? trailName,
   }) async {
     final id = uid;
     if (id == null) return;
@@ -446,10 +478,28 @@ class FirebaseService {
       await _members(code).doc(id).update({
         "latitude": latitude,
         "longitude": longitude,
+        "trailName": trailName,
         "lastUpdated": FieldValue.serverTimestamp(),
       });
     } catch (_) {
       // A dropped position update is not worth interrupting the hike for.
+    }
+  }
+
+  /// Raises or clears the emergency flag on this hiker's group membership,
+  /// so the rest of the group sees the SOS on their own screens.
+  static Future<void> flagGroupSos(bool active) async {
+    final id = uid;
+    final code = GroupSession.code;
+    if (id == null || code == null) return;
+
+    try {
+      await _members(code).doc(id).update({
+        "sosActive": active,
+        "sosAt": active ? FieldValue.serverTimestamp() : null,
+      });
+    } catch (_) {
+      // The SOS record itself still went through; this is the group copy.
     }
   }
 
@@ -464,6 +514,9 @@ class FirebaseService {
           latitude: (d["latitude"] as num?)?.toDouble(),
           longitude: (d["longitude"] as num?)?.toDouble(),
           lastUpdated: (d["lastUpdated"] as Timestamp?)?.toDate(),
+          trailName: d["trailName"] as String?,
+          sosActive: d["sosActive"] as bool? ?? false,
+          sosAt: (d["sosAt"] as Timestamp?)?.toDate(),
         );
       }).toList();
     });
@@ -525,11 +578,14 @@ class FirebaseService {
         "trailName": trailName ?? "Unknown",
         "emergencyContactName": HikerProfile.emergencyContact,
         "emergencyContactNumber": HikerProfile.emergencyNumber,
-      "emergencyContactEmail": HikerProfile.emergencyEmail,
+        "emergencyContactEmail": HikerProfile.emergencyEmail,
         "groupCode": GroupSession.code,
         "triggeredAt": FieldValue.serverTimestamp(),
         "resolved": false,
       });
+
+      // Light up the group screen for everyone else on this trail.
+      await flagGroupSos(true);
       return doc.id;
     } catch (_) {
       return null;
@@ -546,6 +602,7 @@ class FirebaseService {
     } catch (_) {
       // Nothing useful to tell the hiker if this fails.
     }
+    await flagGroupSos(false);
   }
 
   /// Keeps the position current while an SOS is open, so rescuers see
@@ -573,19 +630,29 @@ class FirebaseService {
         .orderBy("reportedAt", descending: true)
         .limit(100)
         .snapshots()
-        .map((snap) => snap.docs.map((doc) {
-              final d = doc.data();
-              return HazardReport(
-                id: doc.id,
-                type: d["type"] as String? ?? "Hazard",
-                description: d["description"] as String? ?? "",
-                nearestTrail: d["nearestTrail"] as String? ?? "Unknown trail",
-                latitude: (d["latitude"] as num?)?.toDouble(),
-                longitude: (d["longitude"] as num?)?.toDouble(),
-                reportedByName: d["reportedByName"] as String? ?? "A hiker",
-                reportedAt: (d["reportedAt"] as Timestamp?)?.toDate(),
-              );
-            }).toList());
+        .map((snap) {
+      // Hazards age out after a week, matching the alerts list.
+      final cutoff = DateTime.now().subtract(const Duration(days: 7));
+      return snap.docs
+          .where((doc) {
+            final filed = (doc.data()["reportedAt"] as Timestamp?)?.toDate();
+            return filed == null || filed.isAfter(cutoff);
+          })
+          .map((doc) {
+            final d = doc.data();
+            return HazardReport(
+              id: doc.id,
+              type: d["type"] as String? ?? "Hazard",
+              description: d["description"] as String? ?? "",
+              nearestTrail: d["nearestTrail"] as String? ?? "Unknown trail",
+              latitude: (d["latitude"] as num?)?.toDouble(),
+              longitude: (d["longitude"] as num?)?.toDouble(),
+              reportedByName: d["reportedByName"] as String? ?? "A hiker",
+              reportedAt: (d["reportedAt"] as Timestamp?)?.toDate(),
+            );
+          })
+          .toList();
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -610,6 +677,115 @@ class FirebaseService {
     });
   }
 
+  static CollectionReference<Map<String, dynamic>> _images(String code) =>
+      _groupDoc(code).collection("images");
+
+  /// True if this hiker created the group, and so may delete it.
+  static Future<bool> isGroupAdmin(String code) async {
+    final id = uid;
+    if (id == null) return false;
+    try {
+      final snap = await _groupDoc(code).get();
+      return snap.data()?["createdBy"] == id;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Deletes the group and everything in it, permanently.
+  ///
+  /// Children go first. The security rules read the group document to
+  /// work out who the creator is, so removing the parent first would lock
+  /// the admin out of their own cleanup.
+  static Future<String?> deleteGroup(String code) async {
+    final id = uid;
+    if (id == null) return "You need to be logged in.";
+
+    try {
+      final snap = await _groupDoc(code).get();
+      if (!snap.exists) return null;
+      if (snap.data()?["createdBy"] != id) {
+        return "Only the hiker who created this group can delete it.";
+      }
+
+      for (final name in <String>["messages", "images", "photos", "members"]) {
+        await _deleteAll(_groupDoc(code).collection(name));
+      }
+
+      await _groupDoc(code).delete();
+      GroupSession.clear();
+      return null;
+    } on FirebaseException catch (e) {
+      return "Could not delete the group (${e.code}).";
+    } catch (_) {
+      return "No connection. The group was not deleted.";
+    }
+  }
+
+  /// Clears a subcollection in batches. A client cannot delete
+  /// recursively, so this is the honest way to do it.
+  static Future<void> _deleteAll(
+    CollectionReference<Map<String, dynamic>> ref,
+  ) async {
+    while (true) {
+      final snap = await ref.limit(300).get();
+      if (snap.docs.isEmpty) return;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      if (snap.docs.length < 300) return;
+    }
+  }
+
+  /// Sends a photo to the group.
+  ///
+  /// The thumbnail rides inside the message so the thread stays light to
+  /// load; the full image sits in its own document and is fetched only
+  /// when somebody opens it.
+  static Future<String?> sendImageMessage({
+    required String code,
+    required String thumbBase64,
+    required String fullBase64,
+    String caption = "",
+  }) async {
+    final id = uid;
+    if (id == null) return "You need to be logged in.";
+
+    try {
+      final image = await _images(code).add({
+        "data": fullBase64,
+        "senderId": id,
+        "sentAt": FieldValue.serverTimestamp(),
+      });
+
+      await _messages(code).add({
+        "text": caption.trim(),
+        "senderId": id,
+        "senderName": HikerProfile.fullName,
+        "imageId": image.id,
+        "thumbBase64": thumbBase64,
+        "sentAt": FieldValue.serverTimestamp(),
+      });
+      return null;
+    } on FirebaseException catch (e) {
+      return "Could not send the photo (${e.code}).";
+    } catch (_) {
+      return "No connection. The photo was not sent.";
+    }
+  }
+
+  /// The full-size image behind a chat message.
+  static Future<String?> chatImage(String code, String imageId) async {
+    try {
+      final snap = await _images(code).doc(imageId).get();
+      return snap.data()?["data"] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Newest last, so the list reads top to bottom like a conversation.
   static Stream<List<GroupMessage>> messageStream(String code) {
     return _messages(code)
@@ -624,10 +800,57 @@ class FirebaseService {
           text: d["text"] as String? ?? "",
           senderId: d["senderId"] as String? ?? "",
           senderName: d["senderName"] as String? ?? "Hiker",
+          imageId: d["imageId"] as String?,
+          thumbBase64: d["thumbBase64"] as String?,
           sentAt: (d["sentAt"] as Timestamp?)?.toDate(),
         );
       }).toList();
       return list.reversed.toList();
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Group profile photos
+  // -------------------------------------------------------------------------
+
+  /// Photos live in their own collection rather than on the member
+  /// document, which is rewritten with a fresh position every few seconds.
+  /// Keeping them apart means a picture downloads once instead of on every
+  /// position update.
+  static CollectionReference<Map<String, dynamic>> _photos(String code) =>
+      _groupDoc(code).collection("photos");
+
+  /// Publishes this hiker's thumbnail to whichever group they are in.
+  /// Clearing the photo removes it for everyone.
+  static Future<void> publishGroupPhoto() async {
+    final id = uid;
+    final code = GroupSession.code;
+    if (id == null || code == null) return;
+
+    try {
+      final photo = HikerProfile.photoBase64;
+      if (photo == null) {
+        await _photos(code).doc(id).delete();
+      } else {
+        await _photos(code).doc(id).set({
+          "photo": photo,
+          "updatedAt": FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (_) {
+      // The profile itself still saved; the group just keeps initials.
+    }
+  }
+
+  /// uid -> decoded thumbnail bytes for everyone in the group.
+  static Stream<Map<String, Uint8List>> groupPhotoStream(String code) {
+    return _photos(code).snapshots().map((snap) {
+      final out = <String, Uint8List>{};
+      for (final doc in snap.docs) {
+        final bytes = decodeThumbnail(doc.data()["photo"] as String?);
+        if (bytes != null) out[doc.id] = bytes;
+      }
+      return out;
     });
   }
 

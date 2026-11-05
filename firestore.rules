@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function inGroup(code) {
+      return signedIn() && exists(
+        /databases/$(database)/documents/groups/$(code)/members/$(request.auth.uid)
+      );
+    }
+
+    // The hiker who created the group. Only they may delete it, and only
+    // they may clear other people's member, message, photo and image
+    // documents in the course of doing so.
+    function isGroupAdmin(code) {
+      return signedIn() && get(
+        /databases/$(database)/documents/groups/$(code)
+      ).data.createdBy == request.auth.uid;
+    }
+
+    // Hiker profiles - readable and writable only by their owner.
+    match /users/{userId} {
+      allow read, create, update, delete: if isOwner(userId);
+
+      match /hikes/{hikeId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Community hazard reports - any signed-in hiker reads,
+    // only the author writes.
+    match /hazards/{hazardId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.reportedBy == request.auth.uid;
+      allow update, delete: if signedIn()
+                    && resource.data.reportedBy == request.auth.uid;
+    }
+
+    match /groups/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if inGroup(code);
+      allow delete: if isGroupAdmin(code);
+
+      // A member writes only their own membership document.
+      match /members/{memberId} {
+        allow read: if inGroup(code) || isOwner(memberId);
+        allow create, update: if isOwner(memberId);
+        allow delete: if isOwner(memberId) || isGroupAdmin(code);
+      }
+
+      // Chat is append-only. Nobody edits a message after sending it.
+      match /messages/{messageId} {
+        allow read: if inGroup(code);
+        allow create: if inGroup(code)
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isGroupAdmin(code);
+      }
+
+      // Profile pictures, one document per member.
+      match /photos/{userId} {
+        allow read: if inGroup(code);
+        allow create, update: if isOwner(userId);
+        allow delete: if isOwner(userId) || isGroupAdmin(code);
+      }
+
+      // Full-size chat images, kept out of the message documents so the
+      // thread stays light to load.
+      match /images/{imageId} {
+        allow read: if inGroup(code);
+        allow create: if inGroup(code)
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isGroupAdmin(code);
+      }
+    }
+
+    // Emergency signals - the sender owns the record, and nobody deletes
+    // one. An emergency may be the subject of an active rescue.
+    match /sosEvents/{eventId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+                    && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Anything not named above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

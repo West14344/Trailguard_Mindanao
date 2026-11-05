@@ -101,6 +101,10 @@ class HikerProfile {
   /// Local file path of the chosen photo. Null means fall back to initials.
   static String? photoPath;
 
+  /// A small JPEG thumbnail of that photo, Base64 encoded, so the rest
+  /// of the group can see it without Firebase Storage.
+  static String? photoBase64;
+
   /// "Intermediate Hiker" becomes "Intermediate"
   static String get levelName =>
       experienceLevel.replaceAll(" Hiker", "").trim();
@@ -128,6 +132,7 @@ class HikerProfile {
     emergencyEmail = "";
     experienceLevel = "Intermediate Hiker";
     photoPath = null;
+    photoBase64 = null;
   }
 }
 
@@ -144,12 +149,24 @@ class GroupMember {
   final double? longitude;
   final DateTime? lastUpdated;
 
+  /// Which mountain this hiker is on, taken from their active hike. Null
+  /// when they have not started one, which is how the group map tells
+  /// "on the trail with us" apart from "at home across the island".
+  final String? trailName;
+
+  /// True while this hiker has an open SOS.
+  final bool sosActive;
+  final DateTime? sosAt;
+
   const GroupMember({
     required this.name,
     required this.email,
     this.latitude,
     this.longitude,
     this.lastUpdated,
+    this.trailName,
+    this.sosActive = false,
+    this.sosAt,
   });
 
   bool get isYou => email.toLowerCase() == HikerProfile.email.toLowerCase();
@@ -161,6 +178,17 @@ class GroupMember {
     final t = lastUpdated;
     if (t == null) return true;
     return DateTime.now().difference(t).inMinutes > 10;
+  }
+
+  /// How long the emergency has been open, for the banner.
+  String get sosAgo {
+    final t = sosAt;
+    if (t == null) return "just now";
+    final mins = DateTime.now().difference(t).inMinutes;
+    if (mins < 1) return "just now";
+    if (mins < 60) return "$mins ${mins == 1 ? "minute" : "minutes"} ago";
+    final hours = DateTime.now().difference(t).inHours;
+    return "$hours ${hours == 1 ? "hour" : "hours"} ago";
   }
 }
 
@@ -281,13 +309,23 @@ class GroupMessage {
   final String senderName;
   final DateTime? sentAt;
 
+  /// Set when the message is a photo. The thumbnail shows in the
+  /// thread; the full image lives in its own document and loads
+  /// only when somebody taps it.
+  final String? imageId;
+  final String? thumbBase64;
+
   const GroupMessage({
     required this.id,
     required this.text,
     required this.senderId,
     required this.senderName,
     this.sentAt,
+    this.imageId,
+    this.thumbBase64,
   });
+
+  bool get isImage => imageId != null;
 
   /// h:mm, since group chat is short-lived and the date rarely matters.
   String get timeLabel {
@@ -317,18 +355,6 @@ Color avatarColorFor(String seed) {
   }
   return palette[hash];
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 /// Hazards on one mountain over the last week, with a risk reading
 /// derived from how many there are and how severe.

@@ -11,13 +11,12 @@ class PermissionsScreen extends StatefulWidget {
 }
 
 class _PermissionsScreenState extends State<PermissionsScreen> {
-  // Cosmetic only for now €” no permission_handler calls yet.
+  // Cosmetic only for now - no permission_handler calls yet.
   final _granted = <bool>[true, true, false];
 
   static const _items = [
     ['Location access', 'Powers trail safety scoring and SOS'],
     ['Notifications', 'Weather and hazard alerts while you hike'],
-    ['Offline maps', 'Download maps for no-signal areas'],
   ];
 
   static const _icons = [

@@ -1,11 +1,60 @@
+import "dart:convert";
+
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:image/image.dart" as img;
+import "package:image_picker/image_picker.dart";
+
 import "../data/mock_data.dart";
 import "../services/firebase_service.dart";
 import "../theme/app_theme.dart";
 
+/// Shrinks a photo twice: a thumbnail small enough to ride inside the
+/// message document, and a full version kept in its own document.
+///
+/// Runs off the UI thread, because decoding a 12-megapixel phone photo
+/// freezes the frame for about a second otherwise.
+List<String>? _encodePhoto(Uint8List bytes) {
+  final img.Image? decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+
+  final bool wide = decoded.width >= decoded.height;
+
+  img.Image full = decoded;
+  if (decoded.width > 1000 || decoded.height > 1000) {
+    full = img.copyResize(
+      decoded,
+      width: wide ? 1000 : null,
+      height: wide ? null : 1000,
+    );
+  }
+
+  List<int> fullJpg = img.encodeJpg(full, quality: 75);
+  // A Firestore document stops at 1 MB and base64 adds a third, so keep
+  // the encoded payload comfortably under that.
+  if (fullJpg.length > 600 * 1024) {
+    fullJpg = img.encodeJpg(
+      img.copyResize(full, width: wide ? 720 : null, height: wide ? null : 720),
+      quality: 60,
+    );
+  }
+
+  final img.Image small = img.copyResize(
+    decoded,
+    width: wide ? 240 : null,
+    height: wide ? null : 240,
+  );
+
+  return <String>[
+    base64Encode(fullJpg),
+    base64Encode(img.encodeJpg(small, quality: 55)),
+  ];
+}
+
 class GroupChatScreen extends StatefulWidget {
   final String code;
   final String groupName;
+
   const GroupChatScreen({
     super.key,
     required this.code,
@@ -17,49 +66,131 @@ class GroupChatScreen extends StatefulWidget {
 }
 
 class _GroupChatScreenState extends State<GroupChatScreen> {
-  final _input = TextEditingController();
-  final _scroll = ScrollController();
+  final TextEditingController _input = TextEditingController();
   bool _sending = false;
 
   @override
   void dispose() {
     _input.dispose();
-    _scroll.dispose();
     super.dispose();
   }
 
   Future<void> _send() async {
-    final text = _input.text.trim();
+    final String text = _input.text.trim();
     if (text.isEmpty || _sending) return;
 
-    setState(() => _sending = true);
     _input.clear();
-
     await FirebaseService.sendMessage(code: widget.code, text: text);
-    if (!mounted) return;
-    setState(() => _sending = false);
+  }
 
-    // Drop to the newest message once it lands.
-    await Future.delayed(const Duration(milliseconds: 250));
-    if (_scroll.hasClients) {
-      _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-      );
+  /// Photos only. Video would need Firebase Storage, which this project
+  /// does not use.
+  Future<void> _attachPhoto() async {
+    if (_sending) return;
+
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: 8),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.line,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: Icon(Icons.photo_camera_outlined,
+                  color: AppColors.forest),
+              title: const Text("Take a photo"),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library_outlined,
+                  color: AppColors.forest),
+              title: const Text("Choose from gallery"),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    final XFile? picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 2000,
+      imageQuality: 90,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _sending = true);
+
+    final Uint8List bytes = await picked.readAsBytes();
+    final List<String>? pair = await compute(_encodePhoto, bytes);
+
+    if (!mounted) return;
+
+    if (pair == null) {
+      setState(() => _sending = false);
+      _complain("That file could not be read as a photo.");
+      return;
     }
+
+    final String? error = await FirebaseService.sendImageMessage(
+      code: widget.code,
+      fullBase64: pair[0],
+      thumbBase64: pair[1],
+      caption: _input.text.trim(),
+    );
+
+    if (!mounted) return;
+    _input.clear();
+    setState(() => _sending = false);
+    if (error != null) _complain(error);
+  }
+
+  void _complain(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.alert,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openPhoto(GroupMessage m) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _PhotoViewer(code: widget.code, message: m),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final String? me = FirebaseService.uid;
+
     return Scaffold(
       body: SafeArea(
         child: Column(
-          children: [
+          children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(12, 8, 20, 8),
               child: Row(
-                children: [
+                children: <Widget>[
                   TextButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: Icon(Icons.arrow_back, size: 20),
@@ -73,49 +204,62 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   const Spacer(),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(widget.groupName,
-                          style: Theme.of(context).textTheme.titleMedium),
-                      Text("Code ${widget.code}",
-                          style: Theme.of(context).textTheme.bodySmall),
+                    children: <Widget>[
+                      Text(
+                        widget.groupName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        "Code ${widget.code}",
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 8),
             Divider(height: 1, color: AppColors.line),
 
             Expanded(
               child: StreamBuilder<List<GroupMessage>>(
                 stream: FirebaseService.messageStream(widget.code),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                builder: (BuildContext context,
+                    AsyncSnapshot<List<GroupMessage>> snapshot) {
+                  final List<GroupMessage> messages =
+                      snapshot.data ?? const <GroupMessage>[];
+
+                  if (messages.isEmpty) {
                     return Center(
-                      child:
-                          CircularProgressIndicator(color: AppColors.forest),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 48),
+                        child: Text(
+                          snapshot.connectionState == ConnectionState.waiting
+                              ? "Loading messages..."
+                              : "No messages yet. Say where you are, or "
+                                  "send a photo of the trail.",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
                     );
                   }
 
-                  final messages = snapshot.data ?? const <GroupMessage>[];
-                  if (messages.isEmpty) return const _NoMessages();
+                  // Newest at the bottom, and the view sticks there.
+                  final List<GroupMessage> ordered =
+                      messages.reversed.toList();
 
                   return ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    itemCount: messages.length,
-                    itemBuilder: (context, i) {
-                      final m = messages[i];
-                      final mine = m.senderId == FirebaseService.uid;
-                      // Only label the sender when it changes.
-                      final showSender = !mine &&
-                          (i == 0 ||
-                              messages[i - 1].senderId != m.senderId);
-
-                      return _MessageBubble(
+                    reverse: true,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    itemCount: ordered.length,
+                    itemBuilder: (BuildContext context, int i) {
+                      final GroupMessage m = ordered[i];
+                      return _Bubble(
                         message: m,
-                        isMine: mine,
-                        showSender: showSender,
+                        mine: m.senderId == me,
+                        onOpenPhoto: () => _openPhoto(m),
                       );
                     },
                   );
@@ -123,63 +267,70 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ),
             ),
 
-            Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                border: Border(top: BorderSide(color: AppColors.line)),
+            if (_sending)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                child: Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.forest),
+                    ),
+                    const SizedBox(width: 10),
+                    Text("Sending photo...",
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
               ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
+                children: <Widget>[
+                  IconButton(
+                    onPressed: _sending ? null : _attachPhoto,
+                    icon: Icon(Icons.add_photo_alternate_outlined,
+                        color: _sending ? AppColors.inkSoft : AppColors.forest),
+                    tooltip: "Send a photo",
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _input,
-                      maxLines: 4,
                       minLines: 1,
+                      maxLines: 4,
                       textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => setState(() {}),
-                      style: TextStyle(
-                          fontSize: 15, color: AppColors.ink),
                       decoration: InputDecoration(
                         hintText: "Message your group",
-                        hintStyle: TextStyle(
-                            color: AppColors.inkSoft, fontSize: 15),
                         filled: true,
                         fillColor: AppColors.paper,
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 12),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pill,
-                          borderSide: BorderSide(color: AppColors.line),
+                          borderRadius: BorderRadius.circular(26),
+                          borderSide: BorderSide(color: AppColors.forest),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.pill,
-                          borderSide: BorderSide(
-                              color: AppColors.forest, width: 1.6),
+                          borderRadius: BorderRadius.circular(26),
+                          borderSide:
+                              BorderSide(color: AppColors.forest, width: 1.6),
                         ),
                       ),
+                      onSubmitted: (_) => _send(),
                     ),
                   ),
-                  SizedBox(width: 10),
-                  SizedBox(
-                    width: 46,
-                    height: 46,
-                    child: FilledButton(
-                      onPressed:
-                          _input.text.trim().isEmpty || _sending ? null : _send,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.forest,
-                        disabledBackgroundColor: AppColors.fill,
-                        shape: const CircleBorder(),
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Icon(
-                        Icons.arrow_upward_rounded,
-                        size: 21,
-                        color: _input.text.trim().isEmpty
-                            ? AppColors.inkSoft
-                            : Colors.white,
+                  const SizedBox(width: 8),
+                  Material(
+                    color: AppColors.mist,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _sending ? null : _send,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(Icons.arrow_upward_rounded,
+                            size: 20, color: AppColors.forest),
                       ),
                     ),
                   ),
@@ -193,121 +344,92 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 }
 
-class _NoMessages extends StatelessWidget {
-  const _NoMessages();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 82,
-              height: 82,
-              decoration: BoxDecoration(
-                color: AppColors.mist,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.forum_outlined,
-                  size: 38, color: AppColors.forest),
-            ),
-            const SizedBox(height: 20),
-            Text("No messages yet",
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              "Say where you are, or flag something the group should know "
-              "about on the trail.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(height: 1.55),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MessageBubble extends StatelessWidget {
+class _Bubble extends StatelessWidget {
   final GroupMessage message;
-  final bool isMine;
-  final bool showSender;
+  final bool mine;
+  final VoidCallback onOpenPhoto;
 
-  const _MessageBubble({
+  const _Bubble({
     required this.message,
-    required this.isMine,
-    required this.showSender,
+    required this.mine,
+    required this.onOpenPhoto,
   });
 
   @override
   Widget build(BuildContext context) {
+    final Color background = mine ? AppColors.forest : AppColors.card;
+    final Color ink = mine ? Colors.white : AppColors.ink;
+
     return Padding(
-      padding: EdgeInsets.only(top: showSender ? 12 : 4),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (showSender)
+            mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: <Widget>[
+          if (!mine)
             Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 4),
-              child: Text(message.senderName,
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
-          Row(
-            mainAxisAlignment:
-                isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              Flexible(
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.74,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isMine ? AppColors.forest : AppColors.card,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isMine ? 16 : 4),
-                      bottomRight: Radius.circular(isMine ? 4 : 16),
-                    ),
-                    border: Border.all(
-                      color: isMine ? AppColors.forest : AppColors.line,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        message.text,
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.35,
-                          color: isMine ? Colors.white : AppColors.ink,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        message.timeLabel,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: isMine
-                              ? const Color(0xB3FFFFFF)
-                              : AppColors.inkSoft,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              padding: const EdgeInsets.only(left: 6, bottom: 3),
+              child: Text(
+                message.senderName,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ],
+            ),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.74,
+            ),
+            child: Material(
+              color: background,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (message.isImage && message.thumbBase64 != null)
+                    InkWell(
+                      onTap: onOpenPhoto,
+                      child: Image.memory(
+                        base64Decode(message.thumbBase64!),
+                        width: 240,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          width: 240,
+                          height: 140,
+                          color: AppColors.fill,
+                          child: Icon(Icons.broken_image_outlined,
+                              color: AppColors.inkSoft),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 9, 14, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        if (message.text.isNotEmpty)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              message.text,
+                              style: TextStyle(
+                                  color: ink, fontSize: 15, height: 1.35),
+                            ),
+                          ),
+                        Text(
+                          message.timeLabel,
+                          style: TextStyle(
+                            color: mine
+                                ? Colors.white.withAlpha(190)
+                                : AppColors.inkSoft,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -315,13 +437,52 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// Full-size photo, fetched only when somebody opens it.
+class _PhotoViewer extends StatelessWidget {
+  final String code;
+  final GroupMessage message;
 
+  const _PhotoViewer({required this.code, required this.message});
 
-
-
-
-
-
-
-
-
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          message.senderName,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+      ),
+      body: FutureBuilder<String?>(
+        future: FirebaseService.chatImage(code, message.imageId!),
+        builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            );
+          }
+          final String? data = snapshot.data;
+          if (data == null) {
+            return const Center(
+              child: Text(
+                "That photo could not be loaded.",
+                style: TextStyle(color: Colors.white70),
+              ),
+            );
+          }
+          return Center(
+            child: InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.memory(base64Decode(data)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

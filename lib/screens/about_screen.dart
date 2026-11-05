@@ -110,7 +110,7 @@ class AboutScreen extends StatelessWidget {
                     icon: Icons.route_outlined,
                     title: 'Recommends trails that fit you',
                     body: 'Matched to your experience, fitness, and today\'s '
-                        'conditions €” not a generic difficulty rating.',
+                        'conditions - not a generic difficulty rating.',
                   ),
                   const _Feature(
                     icon: Icons.cloud_download_outlined,
@@ -133,7 +133,7 @@ class AboutScreen extends StatelessWidget {
                   const _Feature(
                     icon: Icons.groups_outlined,
                     title: 'Hikers report what they see',
-                    body: 'Fallen trees, flooding, blocked paths €” reported by '
+                    body: 'Fallen trees, flooding, blocked paths - reported by '
                         'people who were just there.',
                   ),
 

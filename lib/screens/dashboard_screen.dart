@@ -186,7 +186,8 @@ class _Total extends StatelessWidget {
               fontSize: 20,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.6,
-              color: AppColors.heroFill,
+              // A foreground token, so it inverts with the theme.
+              color: AppColors.pine,
             ),
           ),
           const SizedBox(height: 2),

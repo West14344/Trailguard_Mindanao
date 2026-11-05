@@ -33,7 +33,6 @@ class WelcomeScreen extends StatelessWidget {
                 'TrailGuard Mindanao',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: AppColors.heroFill,
                       fontSize: 30,
                     ),
               ),

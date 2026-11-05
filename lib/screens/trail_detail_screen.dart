@@ -5,6 +5,8 @@ import '../services/weather_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import 'hazard_report_screen.dart';
+import '../services/breadcrumb_trail.dart';
+import '../services/hike_tips.dart';
 
 class TrailDetailScreen extends StatefulWidget {
   final Trail trail;
@@ -25,6 +27,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
 
   void _startHike() {
     ActiveHike.start(widget.trail);
+    BreadcrumbTrail.begin();
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -39,6 +42,17 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
   Widget build(BuildContext context) {
     final trail = widget.trail;
     final alreadyRunning = ActiveHike.isActive;
+
+    // One hike at a time. Opening a different mountain mid-hike would let
+    // you start a second one, which resets the breadcrumb trail and moves
+    // your position in the group to the wrong place.
+    final activeName = ActiveHike.trail?.name;
+    if (alreadyRunning && activeName != trail.name) {
+      return _HikeInProgressBlock(
+        activeTrailName: activeName ?? 'another trail',
+        blockedTrailName: trail.name,
+      );
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -79,7 +93,7 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 4),
                   Text(
-                    '${trail.region} · ${trail.difficulty} · ${trail.duration}',
+                    '${trail.region} \u00B7 ${trail.difficulty} \u00B7 ${trail.duration}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
 
@@ -163,7 +177,7 @@ class _ConditionsView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Center(
-          child: Text('Live conditions · updated just now',
+          child: Text('Live conditions \u00B7 updated just now',
               style: Theme.of(context).textTheme.bodySmall),
         ),
 
@@ -183,7 +197,7 @@ class _ConditionsView extends StatelessWidget {
           icon: Icons.water_drop_outlined,
           label: 'Rainfall risk',
           value:
-              '${conditions.rainfallRisk} · ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
+              '${conditions.rainfallRisk} \u00B7 ${conditions.dailyRainMm.toStringAsFixed(1)} mm today',
         ),
         const SizedBox(height: 10),
         _Row(
@@ -197,6 +211,14 @@ class _ConditionsView extends StatelessWidget {
           label: 'Difficulty',
           value: trail.difficulty,
         ),
+
+        const SizedBox(height: 30),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: SectionLabel('What to bring'),
+        ),
+        const SizedBox(height: 12),
+        _TipsCard(tips: HikeTips.forConditions(conditions, trail.difficulty)),
 
         if (conditions.forecast.isNotEmpty) ...[
           const SizedBox(height: 30),
@@ -254,7 +276,7 @@ class _LoadingConditions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        Text('Checking live conditions‚¬¦',
+        Text('Checking live conditions...',
             style: Theme.of(context).textTheme.titleMedium),
       ],
     );
@@ -406,6 +428,151 @@ class _DayCard extends StatelessWidget {
             '${day.rainMm.toStringAsFixed(1)} mm',
             style: TextStyle(fontSize: 10.5, color: AppColors.inkSoft),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown instead of a trail page when a hike is already running on a
+/// different mountain.
+class _HikeInProgressBlock extends StatelessWidget {
+  final String activeTrailName;
+  final String blockedTrailName;
+
+  const _HikeInProgressBlock({
+    required this.activeTrailName,
+    required this.blockedTrailName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(Icons.arrow_back, size: 20),
+                    label: Text('Back'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.forest,
+                      textStyle: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hiking_rounded,
+                          size: 56, color: AppColors.pine),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Hike in progress',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'You are currently hiking $activeTrailName, so '
+                        '$blockedTrailName is locked until you finish.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(height: 1.55, color: AppColors.inkSoft),
+                      ),
+                      const SizedBox(height: 20),
+                      AppCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: 20, color: AppColors.blaze),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'One hike at a time keeps your breadcrumb '
+                                'trail, your position in the group and your '
+                                'SOS tied to a single mountain.',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SecondaryButton(
+                        label: 'Go back',
+                        icon: Icons.arrow_back_rounded,
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Advice built from the live forecast, so it changes with the weather
+/// instead of repeating one generic checklist.
+class _TipsCard extends StatelessWidget {
+  final List<HikeTip> tips;
+  const _TipsCard({required this.tips});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        children: <Widget>[
+          for (int i = 0; i < tips.length; i++) ...<Widget>[
+            if (i > 0) Divider(height: 1, color: AppColors.line),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    tips[i].icon,
+                    size: 20,
+                    color: tips[i].urgent
+                        ? AppColors.alert
+                        : AppColors.forest,
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Text(
+                      tips[i].text,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(height: 1.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

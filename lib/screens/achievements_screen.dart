@@ -205,7 +205,7 @@ class _RecordCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          Text('${record.region} · $_date',
+          Text('${record.region} \u00B7 $_date',
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 14),
           Row(

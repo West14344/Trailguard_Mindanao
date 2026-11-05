@@ -1,10 +1,11 @@
-﻿import "package:flutter/material.dart";
+import "package:flutter/material.dart";
 import "../data/mock_data.dart";
 import "../services/firebase_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
 import "hazard_report_screen.dart";
 import "sos_screen.dart";
+import 'compass_screen.dart';
 
 /// Which slice of the week's reports the hiker is looking at.
 enum _RiskFilter { all, high, caution, minor }
@@ -237,6 +238,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
                             builder: (_) => const HazardReportScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SecondaryButton(
+                      label: "Compass",
+                      icon: Icons.explore_rounded,
+                      color: AppColors.pine,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CompassScreen()),
                       ),
                     ),
                   ],

@@ -6,6 +6,7 @@ import "../data/mock_data.dart";
 import "../services/firebase_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
+import "../services/photo_thumbnail.dart";
 import "change_password_screen.dart";
 
 class EditProfileScreen extends StatefulWidget {
@@ -127,10 +128,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     HikerProfile.emergencyNumber = _contactNumber.text.trim();
     HikerProfile.experienceLevel = _level;
     HikerProfile.photoPath = _photoPath;
+    HikerProfile.photoBase64 =
+        _photoPath == null ? null : await thumbnailBase64(_photoPath!);
 
     try {
       await FirebaseService.saveProfile();
       await FirebaseService.syncNameToGroup();
+      await FirebaseService.publishGroupPhoto();
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (_) {

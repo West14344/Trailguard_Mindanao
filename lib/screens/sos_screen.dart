@@ -8,6 +8,8 @@ import "../services/firebase_service.dart";
 import "../services/location_service.dart";
 import "../theme/app_theme.dart";
 import "../widgets/app_widgets.dart";
+import '../widgets/compass_button.dart';
+import '../widgets/backtrack_button.dart';
 
 class SosScreen extends StatefulWidget {
   const SosScreen({super.key});
@@ -37,6 +39,10 @@ class _SosScreenState extends State<SosScreen>
   String? _sendError;
 
   Timer? _positionRefresh;
+
+  /// The SOS is tied to a hike in progress: that is what gives rescuers a
+  /// mountain, a trail and a group to work with.
+  bool get _hikeRunning => ActiveHike.isActive;
 
   @override
   void initState() {
@@ -79,7 +85,7 @@ class _SosScreenState extends State<SosScreen>
   }
 
   Future<void> _sendSignal() async {
-    if (_sending || _sent) return;
+    if (_sending || _sent || !_hikeRunning) return;
     setState(() {
       _sending = true;
       _sendError = null;
@@ -121,7 +127,7 @@ class _SosScreenState extends State<SosScreen>
       SnackBar(
         content: Text(_position == null
             ? "SOS recorded without a position. Move to open sky if you can."
-            : "SOS recorded. Your location has been shared."),
+            : "SOS recorded. Your group has been alerted."),
         backgroundColor: AppColors.alert,
         behavior: SnackBarBehavior.floating,
       ),
@@ -150,8 +156,8 @@ class _SosScreenState extends State<SosScreen>
         backgroundColor: AppColors.card,
         title: Text("Mark yourself safe?"),
         content: Text(
-          "This closes the emergency. Only do this if you no longer need "
-          "help.",
+          "This closes the emergency and clears the alert on your group's "
+          "screens. Only do this if you no longer need help.",
           style: TextStyle(height: 1.5),
         ),
         actions: [
@@ -208,8 +214,143 @@ class _SosScreenState extends State<SosScreen>
     return "Sent $mins ${mins == 1 ? "minute" : "minutes"} ago";
   }
 
+  /// Shown in place of the hold button when no hike is running.
+  Widget _lockedRing() {
+    return Center(
+      child: SizedBox(
+        width: 210,
+        height: 210,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 210,
+              height: 210,
+              child: CircularProgressIndicator(
+                value: 1,
+                strokeWidth: 8,
+                backgroundColor: AppColors.fill,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.fill),
+              ),
+            ),
+            Container(
+              width: 178,
+              height: 178,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.fill,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline_rounded,
+                      size: 44, color: AppColors.inkSoft),
+                  SizedBox(height: 8),
+                  Text(
+                    "Start a hike",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    "to unlock SOS",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _holdRing() {
+    return Center(
+      child: GestureDetector(
+        onTapDown: (_) {
+          if (!_sent && !_sending) _hold.forward();
+        },
+        onTapUp: (_) {
+          if (!_sent) _hold.reverse();
+        },
+        onTapCancel: () {
+          if (!_sent) _hold.reverse();
+        },
+        child: AnimatedBuilder(
+          animation: _hold,
+          builder: (context, _) {
+            return SizedBox(
+              width: 210,
+              height: 210,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 210,
+                    height: 210,
+                    child: CircularProgressIndicator(
+                      value: _sending ? null : _hold.value,
+                      strokeWidth: 8,
+                      backgroundColor: AppColors.fill,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppColors.alert),
+                    ),
+                  ),
+                  Container(
+                    width: 178,
+                    height: 178,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _sent
+                          ? AppColors.alert
+                          : const Color(0x14B3261E),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _sent
+                              ? Icons.check_rounded
+                              : Icons.call_rounded,
+                          size: 46,
+                          color: _sent ? Colors.white : AppColors.alert,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          _sending
+                              ? "Sending..."
+                              : _sent
+                                  ? "SOS active"
+                                  : "Hold to SOS",
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: _sent ? Colors.white : AppColors.alert,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canSend = _hikeRunning;
+
     return PopScope(
       // Leaving mid-emergency by accident would be bad, so confirm first.
       canPop: !_sent,
@@ -254,86 +395,24 @@ class _SosScreenState extends State<SosScreen>
                         style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 26),
 
-                    Center(
-                      child: GestureDetector(
-                        onTapDown: (_) {
-                          if (!_sent && !_sending) _hold.forward();
-                        },
-                        onTapUp: (_) {
-                          if (!_sent) _hold.reverse();
-                        },
-                        onTapCancel: () {
-                          if (!_sent) _hold.reverse();
-                        },
-                        child: AnimatedBuilder(
-                          animation: _hold,
-                          builder: (context, _) {
-                            return SizedBox(
-                              width: 210,
-                              height: 210,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 210,
-                                    height: 210,
-                                    child: CircularProgressIndicator(
-                                      value: _sending ? null : _hold.value,
-                                      strokeWidth: 8,
-                                      backgroundColor: AppColors.fill,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
-                                              AppColors.alert),
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 178,
-                                    height: 178,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _sent
-                                          ? AppColors.alert
-                                          : const Color(0x14B3261E),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          _sent
-                                              ? Icons.check_rounded
-                                              : Icons.call_rounded,
-                                          size: 46,
-                                          color: _sent
-                                              ? Colors.white
-                                              : AppColors.alert,
-                                        ),
-                                        SizedBox(height: 8),
-                                        Text(
-                                          _sending
-                                              ? "Sending..."
-                                              : _sent
-                                                  ? "SOS active"
-                                                  : "Hold to SOS",
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            color: _sent
-                                                ? Colors.white
-                                                : AppColors.alert,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                    canSend ? _holdRing() : _lockedRing(),
                     const SizedBox(height: 24),
+                    if (_sent) ...[
+                      const BacktrackButton(),
+                      const SizedBox(height: 10),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: CompassButton(),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Both work with no signal. Use the compass to hold a "
+                        "bearing, or Backtrack to retrace your breadcrumbs.",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
 
                     if (_sent)
                       Center(
@@ -343,20 +422,50 @@ class _SosScreenState extends State<SosScreen>
                     SizedBox(height: 10),
 
                     Text(
-                      _sent
-                          ? "Your emergency has been recorded with your "
-                              "position, and it updates every 30 seconds "
-                              "while this screen is open. Stay where you "
-                              "are if it is safe."
-                          : "Hold the button for 3 seconds to record an "
-                              "emergency with your GPS position and "
-                              "emergency contact details.",
+                      !canSend
+                          ? "SOS is tied to a hike in progress, so rescuers "
+                              "know which mountain and trail to come to. "
+                              "Start your hike from the trail page and the "
+                              "button unlocks."
+                          : _sent
+                              ? "Your emergency has been recorded with your "
+                                  "position, and it updates every 30 seconds "
+                                  "while this screen is open. Everyone in "
+                                  "your group can see it. Stay where you "
+                                  "are if it is safe."
+                              : "Hold the button for 3 seconds to record an "
+                                  "emergency with your GPS position and "
+                                  "alert your group.",
                       textAlign: TextAlign.center,
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
                           ?.copyWith(height: 1.55, color: AppColors.inkSoft),
                     ),
+
+                    if (!canSend) ...[
+                      const SizedBox(height: 18),
+                      AppCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: 20, color: AppColors.blaze),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                "If you need help right now and are not on a "
+                                "hike, call your emergency contact or local "
+                                "rescue directly.",
+                                style:
+                                    Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     if (_sendError != null) ...[
                       SizedBox(height: 16),
@@ -452,12 +561,27 @@ class _SosScreenState extends State<SosScreen>
                           ? "Not set"
                           : HikerProfile.emergencyNumber,
                     ),
+                    if (!_sent) ...[
+                      const SizedBox(height: 10),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: CompassButton(),
+                      ),
+                    ],
                     if (ActiveHike.trail != null) ...[
                       const SizedBox(height: 10),
                       _InfoRow(
                         icon: Icons.terrain_rounded,
                         label: "Trail",
                         value: ActiveHike.trail!.name,
+                      ),
+                    ],
+                    if (GroupSession.isActive) ...[
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        icon: Icons.groups_outlined,
+                        label: "Group alerted",
+                        value: GroupSession.name,
                       ),
                     ],
 
@@ -514,14 +638,3 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
