@@ -8,6 +8,7 @@ import '../services/breadcrumb_trail.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_widgets.dart';
 import '../widgets/backtrack_button.dart';
+import '../widgets/live_track_map.dart';
 
 /// Live tracking view. Replaces the dashboard while a hike is running.
 ///
@@ -94,10 +95,10 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
           distanceFilter: 0,
         ),
       ).listen(_onPosition, onError: (Object _) {});
-    } catch (_) {
+    } catch (err) {
       if (!mounted) return;
       setState(() {
-        _gpsError = 'Could not start GPS tracking.';
+        _gpsError = 'Could not start GPS tracking. $err';
         _waitingForFix = false;
       });
     }
@@ -111,6 +112,8 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
     ActiveHike.latitude = p.latitude;
     ActiveHike.longitude = p.longitude;
     ActiveHike.accuracyM = p.accuracy;
+    debugPrint("[GPS] fix acc=${p.accuracy.toStringAsFixed(1)}m "
+        "speed=${p.speed.toStringAsFixed(2)}m/s");
     BreadcrumbTrail.record(p);
 
     if (_waitingForFix || _accuracyM != p.accuracy) {
@@ -139,7 +142,11 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
       }
     }
 
-    if (p.accuracy > _worstAccuracyM) return;
+    if (p.accuracy > _worstAccuracyM) {
+      debugPrint("[GPS] dropped: accuracy "
+          "${p.accuracy.toStringAsFixed(1)}m, limit $_worstAccuracyM m");
+      return;
+    }
 
     final Position? previous = _lastAccepted;
     if (previous == null) {
@@ -159,7 +166,11 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
     // trusted over 8 m; a fix good to 20 m needs a bigger move to be real.
     final double threshold =
         math.min(20.0, math.max(_minStepM, p.accuracy * 0.5));
-    if (metres < threshold) return; // standing still, or drifting in place
+    if (metres < threshold) {
+      debugPrint("[GPS] held: moved ${metres.toStringAsFixed(1)}m, "
+          "need ${threshold.toStringAsFixed(1)}m");
+      return;
+    }
 
     final double seconds =
         DateTime.now().difference(_lastAcceptedAt).inMilliseconds / 1000;
@@ -175,6 +186,8 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
 
     setState(() {
       ActiveHike.distanceKm += metres / 1000;
+      debugPrint("[GPS] credited ${metres.toStringAsFixed(1)}m "
+          "-> ${ActiveHike.distanceKm.toStringAsFixed(3)}km");
       _lastAccepted = p;
       _lastAcceptedAt = DateTime.now();
       _lastMovementAt = DateTime.now();
@@ -425,6 +438,9 @@ class _HikeTrackingViewState extends State<HikeTrackingView> {
             ),
 
             const Spacer(flex: 3),
+
+            const LiveTrackMap(height: 170),
+            const SizedBox(height: 14),
 
             const BacktrackButton(),
             const SizedBox(height: 14),
